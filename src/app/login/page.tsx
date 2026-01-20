@@ -15,6 +15,8 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
 
   async function handleSubmit() {
+    if (loading) return;
+
     setLoading(true);
     setError(null);
 
@@ -29,7 +31,7 @@ export default function LoginPage() {
         };
       }>('/auth/login', {
         method: 'POST',
-        public: true, // 👈 🔥 ESTA LÍNEA ES LA CLAVE
+        public: true, // 🔥 LOGIN ES RUTA PÚBLICA
         body: JSON.stringify({ email, password }),
       });
 
@@ -85,7 +87,9 @@ export default function LoginPage() {
           </p>
         )}
 
+        {/* 🔥 BOTÓN CORREGIDO: NO HACE SUBMIT */}
         <button
+          type="button"               // 👈 ESTE ERA EL MALDITO BUG
           onClick={handleSubmit}
           disabled={loading}
           className="w-full rounded-lg bg-white text-black py-2.5 text-sm font-medium hover:bg-neutral-200 transition disabled:opacity-50"
