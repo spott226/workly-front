@@ -49,16 +49,17 @@ export default function LoginPage() {
 
   return (
     <main className="min-h-screen flex items-center justify-center bg-gradient-to-br from-neutral-950 via-neutral-900 to-neutral-800 px-4">
-      {/* 🔥 FORM CONTROLADO QUE MATA CUALQUIER SUBMIT NATIVO */}
-      <form
-        onSubmit={(e) => {
-          e.preventDefault(); // 👈 ESTO MATA EL POST /login
-          handleSubmit();
-        }}
+      <div
         className="w-full max-w-sm rounded-2xl bg-neutral-900/80 backdrop-blur border border-neutral-800 shadow-2xl p-8 space-y-6"
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault(); // 🔥 mata submit fantasma
+            handleSubmit();
+          }
+        }}
       >
         <header className="space-y-1 text-center">
-          <h1 className="text-2xl font-semibold text-white tracking-tight">
+          <h1 className="text-2xl font-semibold text-white">
             Bienvenido de nuevo
           </h1>
           <p className="text-sm text-neutral-400">
@@ -89,9 +90,9 @@ export default function LoginPage() {
           </p>
         )}
 
-        {/* SUBMIT CONTROLADO */}
         <button
-          type="submit"
+          type="button"
+          onClick={handleSubmit}
           disabled={loading}
           className="w-full rounded-lg bg-white text-black py-2.5 text-sm font-medium hover:bg-neutral-200 transition disabled:opacity-50"
         >
@@ -101,7 +102,7 @@ export default function LoginPage() {
         <footer className="text-center text-xs text-neutral-500">
           © 2026 · SaaS Citas
         </footer>
-      </form>
+      </div>
     </main>
   );
 }
