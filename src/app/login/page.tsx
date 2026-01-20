@@ -29,16 +29,18 @@ export default function LoginPage() {
         };
       }>('/auth/login', {
         method: 'POST',
+        public: true, // 👈 🔥 ESTA LÍNEA ES LA CLAVE
         body: JSON.stringify({ email, password }),
       });
 
-      // 🔐 Persistencia
+      // 🔐 Guardar token
       localStorage.setItem('token', res.token);
       document.cookie = `token=${res.token}; path=/`;
 
-      // 🔥 SETEA USUARIO INMEDIATO (mata el bug)
+      // 🔥 Setear usuario global
       setUser(res.user);
 
+      // 👉 Redirigir
       router.replace('/dashboard');
     } catch {
       setError('Credenciales inválidas');
@@ -50,7 +52,7 @@ export default function LoginPage() {
   return (
     <main className="min-h-screen flex items-center justify-center bg-gradient-to-br from-neutral-950 via-neutral-900 to-neutral-800 px-4">
       <div className="w-full max-w-sm rounded-2xl bg-neutral-900/80 backdrop-blur border border-neutral-800 shadow-2xl p-8 space-y-6">
-        
+
         <header className="space-y-1 text-center">
           <h1 className="text-2xl font-semibold text-white tracking-tight">
             Bienvenido de nuevo
