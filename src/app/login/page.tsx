@@ -31,18 +31,14 @@ export default function LoginPage() {
         };
       }>('/auth/login', {
         method: 'POST',
-        public: true, // 🔥 LOGIN ES RUTA PÚBLICA
+        public: true,
         body: JSON.stringify({ email, password }),
       });
 
-      // 🔐 Guardar token
       localStorage.setItem('token', res.token);
       document.cookie = `token=${res.token}; path=/`;
 
-      // 🔥 Setear usuario global
       setUser(res.user);
-
-      // 👉 Redirigir
       router.replace('/dashboard');
     } catch {
       setError('Credenciales inválidas');
@@ -53,8 +49,14 @@ export default function LoginPage() {
 
   return (
     <main className="min-h-screen flex items-center justify-center bg-gradient-to-br from-neutral-950 via-neutral-900 to-neutral-800 px-4">
-      <div className="w-full max-w-sm rounded-2xl bg-neutral-900/80 backdrop-blur border border-neutral-800 shadow-2xl p-8 space-y-6">
-
+      {/* 🔥 FORM CONTROLADO QUE MATA CUALQUIER SUBMIT NATIVO */}
+      <form
+        onSubmit={(e) => {
+          e.preventDefault(); // 👈 ESTO MATA EL POST /login
+          handleSubmit();
+        }}
+        className="w-full max-w-sm rounded-2xl bg-neutral-900/80 backdrop-blur border border-neutral-800 shadow-2xl p-8 space-y-6"
+      >
         <header className="space-y-1 text-center">
           <h1 className="text-2xl font-semibold text-white tracking-tight">
             Bienvenido de nuevo
@@ -66,14 +68,14 @@ export default function LoginPage() {
 
         <div className="space-y-4">
           <input
-            className="w-full rounded-lg bg-neutral-800 border border-neutral-700 px-4 py-2 text-sm text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-white/20"
+            className="w-full rounded-lg bg-neutral-800 border border-neutral-700 px-4 py-2 text-sm text-white"
             placeholder="Correo electrónico"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
           />
 
           <input
-            className="w-full rounded-lg bg-neutral-800 border border-neutral-700 px-4 py-2 text-sm text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-white/20"
+            className="w-full rounded-lg bg-neutral-800 border border-neutral-700 px-4 py-2 text-sm text-white"
             placeholder="Contraseña"
             type="password"
             value={password}
@@ -87,10 +89,9 @@ export default function LoginPage() {
           </p>
         )}
 
-        {/* 🔥 BOTÓN CORREGIDO: NO HACE SUBMIT */}
+        {/* SUBMIT CONTROLADO */}
         <button
-          type="button"               // 👈 ESTE ERA EL MALDITO BUG
-          onClick={handleSubmit}
+          type="submit"
           disabled={loading}
           className="w-full rounded-lg bg-white text-black py-2.5 text-sm font-medium hover:bg-neutral-200 transition disabled:opacity-50"
         >
@@ -100,7 +101,7 @@ export default function LoginPage() {
         <footer className="text-center text-xs text-neutral-500">
           © 2026 · SaaS Citas
         </footer>
-      </div>
+      </form>
     </main>
   );
 }
