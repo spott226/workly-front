@@ -20,6 +20,7 @@ type AttendanceItem = {
   last_name: string;
   status: 'PRESENT' | 'ABSENT';
   check_in?: string | null;
+  check_out?: string | null;
 };
 
 type TodayAppointmentsSummary = {
@@ -68,7 +69,6 @@ export default function DashboardPage() {
         setAttendance([]);
       }
 
-      // 🔎 Resumen de citas del día (si ya tienes endpoint; si no, queda en 0 sin romper)
       try {
         const summary =
           await apiFetch<TodayAppointmentsSummary>(
@@ -106,7 +106,22 @@ export default function DashboardPage() {
   };
 
   /* =========================
-     FORMAT TIME (BLINDADO)
+     CHECK-OUT
+  ========================= */
+  const checkOut = async (employeeId: string) => {
+    await apiFetch(`/employees/${employeeId}/check-out`, {
+      method: 'POST',
+      body: JSON.stringify({ time: new Date().toISOString() }),
+    });
+
+    const updated =
+      await apiFetch<AttendanceItem[]>('/employees/attendance/today');
+
+    setAttendance(updated);
+  };
+
+  /* =========================
+     FORMAT TIME
   ========================= */
   const formatTime = (iso?: string | null) => {
     if (!iso) return '—';
@@ -119,7 +134,7 @@ export default function DashboardPage() {
   };
 
   /* =========================
-     DERIVED (RESUMEN / ALERTAS)
+     DERIVED
   ========================= */
   const summary = useMemo(() => {
     const totalEmployees = attendance.length;
@@ -135,7 +150,7 @@ export default function DashboardPage() {
 
   const alerts = useMemo(() => {
     const pendingCheckIn = attendance.filter(
-      a => a.status === 'ABSENT'
+      a => !a.check_in
     ).length;
 
     const messages: string[] = [];
@@ -185,7 +200,7 @@ export default function DashboardPage() {
         </button>
       </div>
 
-      {/* RESUMEN DEL DÍA */}
+      {/* RESUMEN */}
       <div className="mb-6 border rounded p-4">
         <h2 className="font-medium mb-3">Hoy</h2>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
@@ -231,7 +246,7 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* ASISTENCIAS HOY */}
+      {/* ASISTENCIAS */}
       <div className="mb-6 border rounded">
         <button
           onClick={() => setShowAttendance(!showAttendance)}
@@ -263,16 +278,27 @@ export default function DashboardPage() {
                   </p>
                 </div>
 
-                {e.status === 'ABSENT' ? (
+                {!e.check_in && (
                   <button
                     onClick={() => checkIn(e.employee_id)}
                     className="px-3 py-1 bg-green-600 text-white rounded"
                   >
                     Marcar entrada
                   </button>
-                ) : (
+                )}
+
+                {e.check_in && !e.check_out && (
+                  <button
+                    onClick={() => checkOut(e.employee_id)}
+                    className="px-3 py-1 bg-red-600 text-white rounded"
+                  >
+                    Marcar salida
+                  </button>
+                )}
+
+                {e.check_in && e.check_out && (
                   <span className="text-green-600 text-sm">
-                    Presente
+                    Asistencia completa
                   </span>
                 )}
               </div>
