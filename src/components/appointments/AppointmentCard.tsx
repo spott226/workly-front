@@ -46,9 +46,14 @@ export function AppointmentCard({ appointment, onChange }: Props) {
     }
   }
 
+  /* ===========================
+     WHATSAPP
+  =========================== */
+
   function openWhatsapp(message: string) {
     const phone = appointment.phone?.replace(/\D/g, '');
     if (!phone) return;
+
     window.open(
       `https://wa.me/${phone}?text=${encodeURIComponent(message)}`,
       '_blank'
@@ -76,7 +81,9 @@ export function AppointmentCard({ appointment, onChange }: Props) {
       <div className="flex flex-col sm:flex-row sm:justify-between gap-4">
         {/* Info */}
         <div className="space-y-1 min-w-0">
-          <p className="font-semibold truncate">{appointment.client_name}</p>
+          <p className="font-semibold truncate">
+            {appointment.client_name}
+          </p>
 
           <p className="text-sm text-gray-600 truncate">
             {appointment.service_name} · {appointment.employee_name}
@@ -101,21 +108,24 @@ export function AppointmentCard({ appointment, onChange }: Props) {
 
         {/* Actions */}
         <div className="flex flex-wrap gap-2 sm:justify-end">
+          {/* CONFIRMAR */}
           {appointment.status === 'PENDING' && (
             <button
               disabled={loading}
-              onClick={() =>
-                handle(async () => {
-                  await confirmAppointment(appointment.id);
-                  sendConfirmWhatsapp();
-                })
-              }
+              onClick={() => {
+                // 🔥 IMPORTANTE: WhatsApp PRIMERO (gesto directo)
+                sendConfirmWhatsapp();
+
+                // Luego backend
+                handle(() => confirmAppointment(appointment.id));
+              }}
               className="px-4 py-2 text-sm border rounded-md disabled:opacity-50"
             >
-              Confirmar
+              Confirmar y enviar WhatsApp
             </button>
           )}
 
+          {/* ASISTENCIA */}
           {appointment.status === 'CONFIRMED' && (
             <>
               <button
@@ -136,6 +146,7 @@ export function AppointmentCard({ appointment, onChange }: Props) {
             </>
           )}
 
+          {/* REAGENDAR / CANCELAR */}
           {['PENDING', 'CONFIRMED'].includes(appointment.status) && (
             <>
               <button
@@ -158,7 +169,7 @@ export function AppointmentCard({ appointment, onChange }: Props) {
         </div>
       </div>
 
-      {/* Reagendar */}
+      {/* REAGENDAR */}
       {showReschedule && (
         <div className="border rounded-lg p-4 bg-gray-50 space-y-3">
           <p className="text-sm font-medium">
@@ -170,20 +181,22 @@ export function AppointmentCard({ appointment, onChange }: Props) {
           <div className="flex flex-col sm:flex-row gap-2 sm:justify-end">
             <button
               disabled={!newStartISO || loading}
-              onClick={() =>
+              onClick={() => {
+                // WhatsApp primero
+                sendRescheduleWhatsapp(newStartISO!);
+
                 handle(async () => {
                   await rescheduleAppointment(
                     appointment.id,
                     newStartISO!
                   );
-                  sendRescheduleWhatsapp(newStartISO!);
                   setShowReschedule(false);
                   setNewStartISO(null);
-                })
-              }
+                });
+              }}
               className="px-4 py-2 text-sm bg-black text-white rounded-md disabled:bg-gray-300"
             >
-              Confirmar
+              Confirmar y enviar WhatsApp
             </button>
 
             <button
