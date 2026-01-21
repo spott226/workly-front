@@ -37,6 +37,37 @@ type PublicBusiness = {
 };
 
 /* =========================
+   🎨 THEME SYSTEM (SaaS-ready)
+========================= */
+
+const themeClasses: Record<string, string> = {
+  spa: `
+    bg-stone-50 text-stone-800
+    [&_button]:bg-stone-800
+    [&_button]:text-white
+    [&_button]:hover:bg-stone-700
+  `,
+  beauty: `
+    bg-white text-neutral-900
+    [&_button]:bg-pink-600
+    [&_button]:text-white
+    [&_button]:hover:bg-pink-700
+  `,
+  barber: `
+    bg-black text-white
+    [&_button]:bg-white
+    [&_button]:text-black
+    [&_button]:hover:bg-neutral-200
+  `,
+};
+
+const fontClasses: Record<string, string> = {
+  spa: 'font-serif',
+  modern: 'font-sans',
+  classic: 'font-serif tracking-wide',
+};
+
+/* =========================
    COMPONENT
 ========================= */
 
@@ -57,10 +88,9 @@ export default function BusinessPublicClient({ slug }: Props) {
   const [confirmed, setConfirmed] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  /* ======================================================
-     🔄 RESET TOTAL CUANDO CAMBIA EL NEGOCIO (slug)
-     👉 evita datos cruzados entre negocios
-  ====================================================== */
+  /* =========================
+     RESET CUANDO CAMBIA SLUG
+  ========================= */
   useEffect(() => {
     setDraft({
       serviceId: null,
@@ -131,111 +161,121 @@ export default function BusinessPublicClient({ slug }: Props) {
      RENDER
   ========================= */
 
+  const theme = business?.theme_variant || 'spa';
+  const font = business?.font_variant || 'spa';
+
   return (
-    <main className="max-w-xl mx-auto px-4 py-6">
-      <BusinessHeader
-        slug={slug}
-        onBusinessLoaded={(biz: any) => {
-          setBusiness(biz);
-          setOpeningTime(biz.opening_time);
-          setClosingTime(biz.closing_time);
-        }}
-      />
-
-      {business && (
-        <section className="text-center mt-6 space-y-2">
-          <h1 className="text-2xl font-semibold">
-            {business.public_title}
-          </h1>
-
-          {business.public_description && (
-            <p className="text-gray-600 text-sm leading-relaxed">
-              {business.public_description}
-            </p>
-          )}
-        </section>
-      )}
-
-      <div className="space-y-6 mt-6">
-        <ServiceSelector
+    <main
+      className={`
+        min-h-screen
+        ${themeClasses[theme]}
+        ${fontClasses[font]}
+      `}
+    >
+      <div className="max-w-xl mx-auto px-4 py-6">
+        <BusinessHeader
           slug={slug}
-          publicMode
-          onSelect={(serviceId) => {
-            setDraft((d) => ({
-              ...d,
-              serviceId,
-              employeeId: null,
-              dateTime: null,
-            }));
+          onBusinessLoaded={(biz: any) => {
+            setBusiness(biz);
+            setOpeningTime(biz.opening_time);
+            setClosingTime(biz.closing_time);
           }}
         />
 
-        <DateTimeSelector
-          minTime={openingTime ?? undefined}
-          maxTime={closingTime ?? undefined}
-          onSelect={(dateTime) => {
-            setError(null);
-            setDraft((d) => ({
-              ...d,
-              dateTime,
-              employeeId: null,
-            }));
-          }}
-        />
+        {business && (
+          <section className="text-center mt-6 space-y-2">
+            <h1 className="text-3xl font-semibold">
+              {business.public_title}
+            </h1>
 
-        <EmployeeSelector
-          serviceId={draft.serviceId}
-          startISO={draft.dateTime}
-          publicMode
-          onSelect={(employeeId) =>
-            setDraft((d) => ({ ...d, employeeId }))
-          }
-        />
-
-        <ClientForm
-          clientName={draft.clientName}
-          phone={draft.phone}
-          onChange={(data) =>
-            setDraft((d) => ({ ...d, ...data }))
-          }
-        />
-
-        {error && (
-          <p className="text-red-600 text-sm font-medium">
-            {error}
-          </p>
+            {business.public_description && (
+              <p className="opacity-80 text-sm leading-relaxed">
+                {business.public_description}
+              </p>
+            )}
+          </section>
         )}
 
-        {/* BLINDAJE LEGAL */}
-        <p className="text-xs text-gray-500 text-center leading-relaxed">
-          Al crear la cita aceptas los{' '}
-          <Link
-            href="/legal/terminos"
-            className="underline hover:text-black"
-            target="_blank"
-          >
-            Términos y Condiciones
-          </Link>{' '}
-          y la{' '}
-          <Link
-            href="/legal/privacidad"
-            className="underline hover:text-black"
-            target="_blank"
-          >
-            Política de Privacidad
-          </Link>{' '}
-          de Workly.
-        </p>
+        <div className="space-y-6 mt-6">
+          <ServiceSelector
+            slug={slug}
+            publicMode
+            onSelect={(serviceId) => {
+              setDraft((d) => ({
+                ...d,
+                serviceId,
+                employeeId: null,
+                dateTime: null,
+              }));
+            }}
+          />
 
-        <button
-          disabled={!canSubmit() || loading}
-          onClick={handleSubmit}
-          className="w-full bg-black text-white py-3 rounded disabled:bg-gray-300"
-        >
-          {loading
-            ? 'Creando cita…'
-            : business?.cta_text || 'Crear cita'}
-        </button>
+          <DateTimeSelector
+            minTime={openingTime ?? undefined}
+            maxTime={closingTime ?? undefined}
+            onSelect={(dateTime) => {
+              setError(null);
+              setDraft((d) => ({
+                ...d,
+                dateTime,
+                employeeId: null,
+              }));
+            }}
+          />
+
+          <EmployeeSelector
+            serviceId={draft.serviceId}
+            startISO={draft.dateTime}
+            publicMode
+            onSelect={(employeeId) =>
+              setDraft((d) => ({ ...d, employeeId }))
+            }
+          />
+
+          <ClientForm
+            clientName={draft.clientName}
+            phone={draft.phone}
+            onChange={(data) =>
+              setDraft((d) => ({ ...d, ...data }))
+            }
+          />
+
+          {error && (
+            <p className="text-red-500 text-sm font-medium">
+              {error}
+            </p>
+          )}
+
+          <p className="text-xs opacity-70 text-center leading-relaxed">
+            Al crear la cita aceptas los{' '}
+            <Link
+              href="/legal/terminos"
+              className="underline"
+              target="_blank"
+            >
+              Términos y Condiciones
+            </Link>{' '}
+            y la{' '}
+            <Link
+              href="/legal/privacidad"
+              className="underline"
+              target="_blank"
+            >
+              Política de Privacidad
+            </Link>{' '}
+            de Workly.
+          </p>
+
+          <button
+            disabled={!canSubmit() || loading}
+            onClick={handleSubmit}
+            className="w-full py-3 rounded transition disabled:opacity-40"
+          >
+            {loading
+              ? 'Creando cita…'
+              : business?.cta_text || 'Crear cita'}
+          </button>
+        </div>
       </div>
     </main>
   );
