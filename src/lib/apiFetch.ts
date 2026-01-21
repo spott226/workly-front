@@ -10,7 +10,7 @@ export async function apiFetch<T>(
     'Content-Type': 'application/json',
   };
 
-  // 🔐 SOLO agrega token si NO es ruta pública
+  // 🔐 Token solo para rutas privadas
   if (!options.public) {
     const token =
       typeof window !== 'undefined'
@@ -30,18 +30,20 @@ export async function apiFetch<T>(
         ...headers,
         ...(options.headers || {}),
       },
+
+      // 🔥 CLAVE DEL BUG — desactiva cache de Next
+      cache: 'no-store',
     }
   );
 
   if (!res.ok) {
-  // 👇 tolerar endpoints informativos
-  if (res.status === 404 || res.status === 204) {
-    return null as T;
-  }
+    if (res.status === 404 || res.status === 204) {
+      return null as T;
+    }
 
-  const error = await res.json().catch(() => null);
-  throw new Error(error?.message || 'API error');
-}
+    const error = await res.json().catch(() => null);
+    throw new Error(error?.message || 'API error');
+  }
 
   return res.json();
 }
