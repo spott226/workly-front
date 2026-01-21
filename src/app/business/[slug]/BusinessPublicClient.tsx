@@ -10,6 +10,10 @@ import { BookingConfirmation } from '@/components/booking/BookingConfirmation';
 import { apiFetch } from '@/lib/apiFetch';
 import Link from 'next/link';
 
+/* =========================
+   TYPES
+========================= */
+
 type Props = {
   slug: string;
 };
@@ -22,6 +26,20 @@ type Draft = {
   dateTime: string | null;
 };
 
+type PublicBusiness = {
+  public_title: string;
+  public_description: string;
+  cta_text: string;
+  theme_variant: string;
+  font_variant: string;
+  opening_time?: string;
+  closing_time?: string;
+};
+
+/* =========================
+   COMPONENT
+========================= */
+
 export default function BusinessPublicClient({ slug }: Props) {
   const [draft, setDraft] = useState<Draft>({
     serviceId: null,
@@ -31,6 +49,7 @@ export default function BusinessPublicClient({ slug }: Props) {
     dateTime: null,
   });
 
+  const [business, setBusiness] = useState<PublicBusiness | null>(null);
   const [openingTime, setOpeningTime] = useState<string | null>(null);
   const [closingTime, setClosingTime] = useState<string | null>(null);
 
@@ -40,7 +59,7 @@ export default function BusinessPublicClient({ slug }: Props) {
 
   /* ======================================================
      🔄 RESET TOTAL CUANDO CAMBIA EL NEGOCIO (slug)
-     👉 FIX CLAVE: evita servicios cruzados
+     👉 evita datos cruzados entre negocios
   ====================================================== */
   useEffect(() => {
     setDraft({
@@ -51,6 +70,7 @@ export default function BusinessPublicClient({ slug }: Props) {
       dateTime: null,
     });
 
+    setBusiness(null);
     setOpeningTime(null);
     setClosingTime(null);
     setConfirmed(false);
@@ -95,6 +115,10 @@ export default function BusinessPublicClient({ slug }: Props) {
     }
   }
 
+  /* =========================
+     CONFIRMACIÓN
+  ========================= */
+
   if (confirmed) {
     return (
       <main className="max-w-xl mx-auto p-6">
@@ -103,30 +127,48 @@ export default function BusinessPublicClient({ slug }: Props) {
     );
   }
 
+  /* =========================
+     RENDER
+  ========================= */
+
   return (
     <main className="max-w-xl mx-auto px-4 py-6">
       <BusinessHeader
         slug={slug}
         onBusinessLoaded={(biz: any) => {
+          setBusiness(biz);
           setOpeningTime(biz.opening_time);
           setClosingTime(biz.closing_time);
         }}
       />
 
-      <div className="space-y-6 mt-6">
-       <ServiceSelector
-  slug={slug}
-  publicMode
-  onSelect={(serviceId) => {
-    setDraft((d) => ({
-      ...d,
-      serviceId,
-      employeeId: null,
-      dateTime: null,
-    }));
-  }}
-/>
+      {business && (
+        <section className="text-center mt-6 space-y-2">
+          <h1 className="text-2xl font-semibold">
+            {business.public_title}
+          </h1>
 
+          {business.public_description && (
+            <p className="text-gray-600 text-sm leading-relaxed">
+              {business.public_description}
+            </p>
+          )}
+        </section>
+      )}
+
+      <div className="space-y-6 mt-6">
+        <ServiceSelector
+          slug={slug}
+          publicMode
+          onSelect={(serviceId) => {
+            setDraft((d) => ({
+              ...d,
+              serviceId,
+              employeeId: null,
+              dateTime: null,
+            }));
+          }}
+        />
 
         <DateTimeSelector
           minTime={openingTime ?? undefined}
@@ -190,7 +232,9 @@ export default function BusinessPublicClient({ slug }: Props) {
           onClick={handleSubmit}
           className="w-full bg-black text-white py-3 rounded disabled:bg-gray-300"
         >
-          {loading ? 'Creando cita…' : 'Crear cita'}
+          {loading
+            ? 'Creando cita…'
+            : business?.cta_text || 'Crear cita'}
         </button>
       </div>
     </main>
