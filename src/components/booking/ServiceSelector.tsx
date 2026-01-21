@@ -12,17 +12,40 @@ type Service = {
 
 type Props = {
   onSelect: (serviceId: string) => void;
+
+  // 🔑 SOLO para público
+  slug?: string;
+  publicMode?: boolean;
 };
 
-export function ServiceSelector({ onSelect }: Props) {
+export function ServiceSelector({
+  onSelect,
+  slug,
+  publicMode = false,
+}: Props) {
   const [services, setServices] = useState<Service[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
 
   useEffect(() => {
+    setServices([]);
+    setSelected(null);
+
+    // 🌍 PÚBLICO: por slug
+    if (publicMode && slug) {
+      apiFetch<Service[]>(
+        `/public/business/${slug}/services`,
+        { public: true }
+      )
+        .then(setServices)
+        .catch(console.error);
+      return;
+    }
+
+    // 🏢 INTERNO: por sesión (business_id)
     apiFetch<Service[]>('/services')
       .then(setServices)
       .catch(console.error);
-  }, []);
+  }, [slug, publicMode]);
 
   return (
     <div className="w-full space-y-3">

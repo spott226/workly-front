@@ -114,8 +114,8 @@ export default function BusinessPublicClient({ slug }: Props) {
       />
 
       <div className="space-y-6 mt-6">
-        <ServiceSelector
-  key={slug}   // 🔥 CLAVE
+       <ServiceSelector
+  slug={slug}
   onSelect={(serviceId: string) => {
     setError(null);
     setDraft((d) => ({
@@ -126,6 +126,7 @@ export default function BusinessPublicClient({ slug }: Props) {
     }));
   }}
 />
+
 
         <DateTimeSelector
           minTime={openingTime ?? undefined}
