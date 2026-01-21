@@ -27,28 +27,45 @@ export function EmployeeSelector({
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    // 🔒 Si no hay servicio o hora exacta, NO hacemos nada
+    if (!serviceId || !startISO) return;
+
+    let cancelled = false;
+
+    // Reset solo cuando sí vamos a consultar
     setEmployees([]);
     setSelected(null);
     setError(null);
-
-    if (!serviceId || !startISO) return;
+    setLoading(true);
 
     const url = `/api/appointments/availability?serviceId=${serviceId}&startISO=${encodeURIComponent(
       startISO
     )}`;
 
-    setLoading(true);
-
     apiFetch(url, publicMode ? { public: true } : undefined)
       .then((res) => {
-        setEmployees(Array.isArray(res) ? res : []);
+        if (!cancelled) {
+          setEmployees(Array.isArray(res) ? res : []);
+        }
       })
       .catch(() => {
-        setError('No hay empleados disponibles para este horario');
+        if (!cancelled) {
+          setError('No hay empleados disponibles para este horario');
+        }
       })
-      .finally(() => setLoading(false));
+      .finally(() => {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      });
+
+    // 🧹 Cleanup para evitar renders fantasmas
+    return () => {
+      cancelled = true;
+    };
   }, [serviceId, startISO, publicMode]);
 
+  // 🔐 El selector SOLO aparece cuando hay servicio + hora válida
   if (!serviceId || !startISO) return null;
 
   return (
