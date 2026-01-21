@@ -55,6 +55,10 @@ export function Sidebar({ role }: Props) {
             <Link href="/clients" className={linkClass('/clients')}>
               Clientes
             </Link>
+
+            <Link href="/staff" className={linkClass('/edicion-pagina')}>
+              Edicion
+            </Link>
           </>
         )}
       </nav>
