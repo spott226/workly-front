@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { BusinessHeader } from '@/components/business/BusinessHeader';
 import { ServiceSelector } from '@/components/booking/ServiceSelector';
 import { EmployeeSelector } from '@/components/booking/EmployeeSelector';
@@ -37,6 +37,25 @@ export default function BusinessPublicClient({ slug }: Props) {
   const [loading, setLoading] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  /* ======================================================
+     🔄 RESET TOTAL CUANDO CAMBIA EL NEGOCIO (slug)
+     👉 FIX CLAVE: evita servicios cruzados
+  ====================================================== */
+  useEffect(() => {
+    setDraft({
+      serviceId: null,
+      employeeId: null,
+      clientName: '',
+      phone: '',
+      dateTime: null,
+    });
+
+    setOpeningTime(null);
+    setClosingTime(null);
+    setConfirmed(false);
+    setError(null);
+  }, [slug]);
 
   function canSubmit() {
     return (
