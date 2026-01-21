@@ -115,16 +115,17 @@ export default function BusinessPublicClient({ slug }: Props) {
 
       <div className="space-y-6 mt-6">
         <ServiceSelector
-          onSelect={(serviceId: string) => {
-            setError(null);
-            setDraft((d) => ({
-              ...d,
-              serviceId,
-              employeeId: null,
-              dateTime: null,
-            }));
-          }}
-        />
+  key={slug}   // 🔥 CLAVE
+  onSelect={(serviceId: string) => {
+    setError(null);
+    setDraft((d) => ({
+      ...d,
+      serviceId,
+      employeeId: null,
+      dateTime: null,
+    }));
+  }}
+/>
 
         <DateTimeSelector
           minTime={openingTime ?? undefined}
