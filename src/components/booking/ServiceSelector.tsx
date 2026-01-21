@@ -13,7 +13,7 @@ type Service = {
 type Props = {
   onSelect: (serviceId: string) => void;
 
-  // 🔑 SOLO para público
+  // 🔑 SOLO para sitio público
   slug?: string;
   publicMode?: boolean;
 };
@@ -27,24 +27,29 @@ export function ServiceSelector({
   const [selected, setSelected] = useState<string | null>(null);
 
   useEffect(() => {
+    // 🔄 limpiar estado al cambiar contexto
     setServices([]);
     setSelected(null);
 
-    // 🌍 PÚBLICO: por slug
+    // 🌍 PÚBLICO → servicios por SLUG (endpoint correcto)
     if (publicMode && slug) {
       apiFetch<Service[]>(
-        `/public/business/${slug}/services`,
+        `/services/public?slug=${slug}`,
         { public: true }
       )
-        .then(setServices)
-        .catch(console.error);
+        .then((res) => {
+          setServices(Array.isArray(res) ? res : []);
+        })
+        .catch(() => setServices([]));
       return;
     }
 
-    // 🏢 INTERNO: por sesión (business_id)
+    // 🏢 INTERNO → servicios por sesión (business_id)
     apiFetch<Service[]>('/services')
-      .then(setServices)
-      .catch(console.error);
+      .then((res) => {
+        setServices(Array.isArray(res) ? res : []);
+      })
+      .catch(() => setServices([]));
   }, [slug, publicMode]);
 
   return (
@@ -52,6 +57,12 @@ export function ServiceSelector({
       <h3 className="font-semibold text-sm md:text-base">
         Selecciona servicio
       </h3>
+
+      {services.length === 0 && (
+        <p className="text-sm text-gray-500">
+          No hay servicios disponibles
+        </p>
+      )}
 
       <div className="space-y-3">
         {services.map((s) => (

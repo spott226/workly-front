@@ -116,8 +116,8 @@ export default function BusinessPublicClient({ slug }: Props) {
       <div className="space-y-6 mt-6">
        <ServiceSelector
   slug={slug}
-  onSelect={(serviceId: string) => {
-    setError(null);
+  publicMode
+  onSelect={(serviceId) => {
     setDraft((d) => ({
       ...d,
       serviceId,

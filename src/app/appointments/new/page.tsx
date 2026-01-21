@@ -103,16 +103,16 @@ export default function NewAppointmentPage() {
       <div className="max-w-xl space-y-6">
         {/* ✅ ServiceSelector devuelve SOLO ID */}
         <ServiceSelector
-          onSelect={(serviceId: string) => {
-            setError(null);
-            setDraft((d) => ({
-              ...d,
-              serviceId,
-              employeeId: null,
-              dateTime: null,
-            }));
-          }}
-        />
+  onSelect={(serviceId) => {
+    setDraft((d) => ({
+      ...d,
+      serviceId,
+      employeeId: null,
+      dateTime: null,
+    }));
+  }}
+/>
+
 
         <DateTimeSelector
   minTime={openingTime ?? undefined}
