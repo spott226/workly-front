@@ -1,49 +1,70 @@
+import { TOKENS } from './designTokens';
+
+/* =========================
+   TYPES
+========================= */
+
+export type BusinessTheme = {
+  label: string;
+  page: string;
+  hero: string;
+  card: string;
+  button: string;
+};
+
+/* =========================
+   THEMES (CORRECTO)
+========================= */
+
 export const BUSINESS_THEMES = {
   spa: {
     label: 'Spa / Relajación',
-    page: 'bg-stone-50 text-stone-800',
-    hero: 'bg-gradient-to-b from-stone-200 to-stone-50',
-    card: 'bg-white rounded-2xl shadow-sm',
-    button: 'bg-stone-700 text-white hover:bg-stone-800',
+    page: 'bg-[#F6FBF9] text-stone-800',
+    hero: 'bg-gradient-to-b from-[#E6F3EE] to-transparent',
+    card: `bg-white ${TOKENS.radius.lg} ${TOKENS.shadow.soft} ${TOKENS.spacing.card}`,
+    button:
+      'bg-stone-800 text-white hover:bg-stone-900 transition-all',
+  },
+
+  holistic: {
+    label: 'Centro Holístico',
+    page: 'bg-[#0F1E17] text-[#EAF5EE]',
+    hero: 'bg-gradient-to-b from-[#13261E] to-transparent',
+    card: `bg-[#162B22] border border-[#1F3A2F] ${TOKENS.radius.lg} ${TOKENS.shadow.medium} ${TOKENS.spacing.card}`,
+    button:
+      'bg-emerald-600 text-white hover:bg-emerald-500 transition-all',
   },
 
   beauty: {
-    label: 'Salón de belleza',
-    page: 'bg-white text-neutral-900',
-    hero: 'bg-gradient-to-b from-pink-50 to-white',
-    card: 'bg-white rounded-2xl shadow-md',
-    button: 'bg-pink-600 text-white hover:bg-pink-700',
+    label: 'Salón de Belleza',
+    page: 'bg-[#FFF7FA] text-[#3A1F2D]',
+    hero: 'bg-gradient-to-b from-[#FCE7F3] to-transparent',
+    card: `bg-white ${TOKENS.radius.lg} ${TOKENS.shadow.medium} ${TOKENS.spacing.card}`,
+    button:
+      'bg-pink-600 text-white hover:bg-pink-500 transition-all',
+  },
+
+  clinic: {
+    label: 'Clínica / Consultorio',
+    page: 'bg-[#F8FAFC] text-slate-900',
+    hero: 'bg-gradient-to-b from-[#E2E8F0] to-transparent',
+    card: `bg-white ${TOKENS.radius.md} ${TOKENS.shadow.soft} ${TOKENS.spacing.card}`,
+    button:
+      'bg-sky-600 text-white hover:bg-sky-500 transition-all',
   },
 
   barber: {
     label: 'Barbería',
-    page: 'bg-neutral-950 text-white',
-    hero: 'bg-neutral-900',
-    card: 'bg-neutral-900 border border-neutral-800 rounded-lg',
-    button: 'bg-white text-black hover:bg-neutral-200',
-  },
-
-  dental: {
-    label: 'Clínica dental',
-    page: 'bg-sky-50 text-slate-900',
-    hero: 'bg-white border-b',
-    card: 'bg-white rounded-xl shadow-sm border',
-    button: 'bg-sky-600 text-white hover:bg-sky-700',
-  },
-
-  physio: {
-    label: 'Fisioterapia',
-    page: 'bg-indigo-50 text-slate-900',
-    hero: 'bg-gradient-to-b from-indigo-100 to-indigo-50',
-    card: 'bg-white rounded-xl shadow',
-    button: 'bg-indigo-600 text-white hover:bg-indigo-700',
-  },
-
-  holistic: {
-    label: 'Centro holístico',
-    page: 'bg-emerald-50 text-emerald-900',
-    hero: 'bg-gradient-to-b from-emerald-100 to-emerald-50',
-    card: 'bg-white rounded-xl shadow-sm',
-    button: 'bg-emerald-600 text-white hover:bg-emerald-700',
+    page: 'bg-black text-white',
+    hero: 'bg-gradient-to-b from-neutral-900 to-black',
+    card: `bg-neutral-900 border border-neutral-800 ${TOKENS.radius.md} ${TOKENS.shadow.luxury} ${TOKENS.spacing.card}`,
+    button:
+      'bg-white text-black hover:bg-neutral-200 transition-all',
   },
 } as const;
+
+/* =========================
+   DERIVED TYPE (CLAVE)
+========================= */
+
+export type BusinessThemeKey = keyof typeof BUSINESS_THEMES;
