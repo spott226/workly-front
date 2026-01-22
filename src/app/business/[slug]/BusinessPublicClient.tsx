@@ -112,55 +112,61 @@ export default function BusinessPublicClient({ slug }: Props) {
 
   return (
     <main className={`${theme.page} ${fontClass} min-h-screen`}>
-      {/* HERO */}
-<section className={`${theme.hero} px-6 py-16 text-center`}>
-  {/* Loader invisible (solo fetch, no UI) */}
-  <div className="sr-only">
-    <BusinessHeader
-      slug={slug}
-      onBusinessLoaded={(biz: any) => {
-        setBusiness(biz);
-        setOpeningTime(biz.opening_time ?? null);
-        setClosingTime(biz.closing_time ?? null);
-      }}
-    />
-  </div>
+      {/* ================= HERO ================= */}
+      <section className={`${theme.hero} px-6 py-20 text-center`}>
+        {/* Loader invisible */}
+        <div className="sr-only">
+          <BusinessHeader
+            slug={slug}
+            onBusinessLoaded={(biz: any) => {
+              setBusiness(biz);
+              setOpeningTime(biz.opening_time ?? null);
+              setClosingTime(biz.closing_time ?? null);
+            }}
+          />
+        </div>
 
-  {/* HERO REAL */}
-  {business && (
-    <div className="mt-10 animate-[fadeUp_0.6s_ease-out]">
-      <h1 className="text-4xl md:text-5xl font-semibold">
-        {business.public_title}
-      </h1>
+        {business && (
+          <div className="animate-[fadeUp_0.6s_ease-out]">
+            <h1 className="text-4xl md:text-5xl font-semibold">
+              {business.public_title}
+            </h1>
 
-      {business.public_description && (
-        <p className="mt-4 text-lg opacity-80 max-w-2xl mx-auto">
-          {business.public_description}
-        </p>
-      )}
+            {business.public_description && (
+              <p className="mt-4 text-lg opacity-80 max-w-2xl mx-auto">
+                {business.public_description}
+              </p>
+            )}
 
-      <button
-        onClick={() =>
-          bookingRef.current?.scrollIntoView({ behavior: 'smooth' })
-        }
-        className={`mt-8 px-8 py-4 rounded-full text-lg transition ${theme.button}`}
-      >
-        {business.cta_text || 'Reservar ahora'}
-      </button>
-    </div>
-  )}
-</section>
+            <button
+              onClick={() =>
+                bookingRef.current?.scrollIntoView({ behavior: 'smooth' })
+              }
+              className={`mt-10 px-10 py-4 rounded-full text-lg transition ${theme.button}`}
+            >
+              {business.cta_text || 'Reservar ahora'}
+            </button>
+          </div>
+        )}
+      </section>
 
-      {/* INFO */}
-      {business?.public_description && (
-        <section className="max-w-2xl mx-auto px-6 py-14 text-center opacity-90">
-          <p className="text-lg leading-relaxed">
-            {business.public_description}
+      {/* ================= BLOQUE CONFIANZA ================= */}
+      <section className="px-6 py-16">
+        <div
+          className={`max-w-3xl mx-auto text-center rounded-2xl ${theme.card}`}
+        >
+          <h2 className="text-2xl md:text-3xl font-semibold mb-4">
+            Agenda tu cita en menos de 1 minuto
+          </h2>
+
+          <p className="text-base md:text-lg opacity-80 leading-relaxed">
+            Sin llamadas. Sin mensajes interminables.  
+            Confirmación inmediata y atención profesional desde el primer momento.
           </p>
-        </section>
-      )}
+        </div>
+      </section>
 
-      {/* BOOKING */}
+      {/* ================= BOOKING ================= */}
       <section
         ref={bookingRef}
         className="max-w-xl mx-auto px-4 py-10 space-y-6"
