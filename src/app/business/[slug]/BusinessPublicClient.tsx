@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { BusinessHeader } from '@/components/business/BusinessHeader';
 import { ServiceSelector } from '@/components/booking/ServiceSelector';
 import { EmployeeSelector } from '@/components/booking/EmployeeSelector';
@@ -10,7 +10,6 @@ import { BookingConfirmation } from '@/components/booking/BookingConfirmation';
 import { apiFetch } from '@/lib/apiFetch';
 import Link from 'next/link';
 
-// 🎨 estilos centralizados
 import { BUSINESS_THEMES } from '@/styles/businessThemes';
 import { FONT_PRESETS } from '@/styles/fontPresets';
 
@@ -43,6 +42,8 @@ type PublicBusiness = {
 ========================= */
 
 export default function BusinessPublicClient({ slug }: Props) {
+  const bookingRef = useRef<HTMLDivElement>(null);
+
   const [draft, setDraft] = useState<Draft>({
     serviceId: null,
     employeeId: null,
@@ -58,10 +59,6 @@ export default function BusinessPublicClient({ slug }: Props) {
   const [confirmed, setConfirmed] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  /* =========================
-     SUBMIT
-  ========================= */
-
   async function handleSubmit() {
     if (
       !draft.serviceId ||
@@ -69,9 +66,7 @@ export default function BusinessPublicClient({ slug }: Props) {
       !draft.clientName.trim() ||
       !draft.phone.trim() ||
       !draft.dateTime
-    ) {
-      return;
-    }
+    ) return;
 
     setLoading(true);
     setError(null);
@@ -89,20 +84,13 @@ export default function BusinessPublicClient({ slug }: Props) {
           phone: draft.phone,
         }),
       });
-
       setConfirmed(true);
     } catch (e) {
-      setError(
-        e instanceof Error ? e.message : 'Error al crear la cita'
-      );
+      setError(e instanceof Error ? e.message : 'Error al crear la cita');
     } finally {
       setLoading(false);
     }
   }
-
-  /* =========================
-     CONFIRMACIÓN
-  ========================= */
 
   if (confirmed) {
     return (
@@ -112,31 +100,19 @@ export default function BusinessPublicClient({ slug }: Props) {
     );
   }
 
-  /* =========================
-     THEMES / FONTS (SAFE)
-  ========================= */
-
   const themeKey =
     (business?.theme_variant as keyof typeof BUSINESS_THEMES) || 'spa';
-
-  const theme =
-    BUSINESS_THEMES[themeKey] ?? BUSINESS_THEMES.spa;
+  const theme = BUSINESS_THEMES[themeKey] ?? BUSINESS_THEMES.spa;
 
   const fontKey =
     (business?.font_variant as keyof typeof FONT_PRESETS) || 'elegant';
-
   const fontClass =
-    FONT_PRESETS[fontKey]?.className ??
-    FONT_PRESETS.elegant.className;
-
-  /* =========================
-     RENDER
-  ========================= */
+    FONT_PRESETS[fontKey]?.className ?? FONT_PRESETS.elegant.className;
 
   return (
     <main className={`${theme.page} ${fontClass} min-h-screen`}>
       {/* HERO */}
-      <section className={`${theme.hero} px-6 py-12 text-center`}>
+      <section className={`${theme.hero} px-6 py-16 text-center`}>
         <BusinessHeader
           slug={slug}
           onBusinessLoaded={(biz: any) => {
@@ -147,21 +123,37 @@ export default function BusinessPublicClient({ slug }: Props) {
         />
 
         {business && (
-          <>
-            <h1 className="text-4xl font-semibold mt-6">
+          <div className="mt-10 animate-[fadeUp_0.6s_ease-out]">
+            <h1 className="text-4xl md:text-5xl font-semibold">
               {business.public_title}
             </h1>
-            {business.public_description && (
-              <p className="mt-3 opacity-80">
-                {business.public_description}
-              </p>
-            )}
-          </>
+
+            <button
+              onClick={() =>
+                bookingRef.current?.scrollIntoView({ behavior: 'smooth' })
+              }
+              className={`mt-8 px-8 py-4 rounded-full text-lg transition ${theme.button}`}
+            >
+              {business.cta_text || 'Reservar ahora'}
+            </button>
+          </div>
         )}
       </section>
 
+      {/* INFO */}
+      {business?.public_description && (
+        <section className="max-w-2xl mx-auto px-6 py-14 text-center opacity-90">
+          <p className="text-lg leading-relaxed">
+            {business.public_description}
+          </p>
+        </section>
+      )}
+
       {/* BOOKING */}
-      <section className="max-w-xl mx-auto px-4 py-10 space-y-6">
+      <section
+        ref={bookingRef}
+        className="max-w-xl mx-auto px-4 py-10 space-y-6"
+      >
         <div className={theme.card}>
           <ServiceSelector
             slug={slug}
@@ -213,9 +205,7 @@ export default function BusinessPublicClient({ slug }: Props) {
         </div>
 
         {error && (
-          <p className="text-red-500 text-sm font-medium">
-            {error}
-          </p>
+          <p className="text-red-500 text-sm font-medium">{error}</p>
         )}
 
         <button
@@ -223,9 +213,7 @@ export default function BusinessPublicClient({ slug }: Props) {
           onClick={handleSubmit}
           className={`w-full py-4 rounded-xl text-lg transition ${theme.button}`}
         >
-          {loading
-            ? 'Creando cita…'
-            : business?.cta_text || 'Reservar cita'}
+          {loading ? 'Creando cita…' : 'Confirmar reserva'}
         </button>
 
         <p className="text-xs opacity-70 text-center">
@@ -239,6 +227,19 @@ export default function BusinessPublicClient({ slug }: Props) {
           </Link>
         </p>
       </section>
+
+      <style jsx global>{`
+        @keyframes fadeUp {
+          from {
+            opacity: 0;
+            transform: translateY(12px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+      `}</style>
     </main>
   );
 }
