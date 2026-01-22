@@ -113,33 +113,43 @@ export default function BusinessPublicClient({ slug }: Props) {
   return (
     <main className={`${theme.page} ${fontClass} min-h-screen`}>
       {/* HERO */}
-      <section className={`${theme.hero} px-6 py-16 text-center`}>
-        <BusinessHeader
-          slug={slug}
-          onBusinessLoaded={(biz: any) => {
-            setBusiness(biz);
-            setOpeningTime(biz.opening_time ?? null);
-            setClosingTime(biz.closing_time ?? null);
-          }}
-        />
+<section className={`${theme.hero} px-6 py-16 text-center`}>
+  {/* Loader invisible (solo fetch, no UI) */}
+  <div className="sr-only">
+    <BusinessHeader
+      slug={slug}
+      onBusinessLoaded={(biz: any) => {
+        setBusiness(biz);
+        setOpeningTime(biz.opening_time ?? null);
+        setClosingTime(biz.closing_time ?? null);
+      }}
+    />
+  </div>
 
-        {business && (
-          <div className="mt-10 animate-[fadeUp_0.6s_ease-out]">
-            <h1 className="text-4xl md:text-5xl font-semibold">
-              {business.public_title}
-            </h1>
+  {/* HERO REAL */}
+  {business && (
+    <div className="mt-10 animate-[fadeUp_0.6s_ease-out]">
+      <h1 className="text-4xl md:text-5xl font-semibold">
+        {business.public_title}
+      </h1>
 
-            <button
-              onClick={() =>
-                bookingRef.current?.scrollIntoView({ behavior: 'smooth' })
-              }
-              className={`mt-8 px-8 py-4 rounded-full text-lg transition ${theme.button}`}
-            >
-              {business.cta_text || 'Reservar ahora'}
-            </button>
-          </div>
-        )}
-      </section>
+      {business.public_description && (
+        <p className="mt-4 text-lg opacity-80 max-w-2xl mx-auto">
+          {business.public_description}
+        </p>
+      )}
+
+      <button
+        onClick={() =>
+          bookingRef.current?.scrollIntoView({ behavior: 'smooth' })
+        }
+        className={`mt-8 px-8 py-4 rounded-full text-lg transition ${theme.button}`}
+      >
+        {business.cta_text || 'Reservar ahora'}
+      </button>
+    </div>
+  )}
+</section>
 
       {/* INFO */}
       {business?.public_description && (
