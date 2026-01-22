@@ -27,12 +27,10 @@ export function EmployeeSelector({
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // 🔒 Si no hay servicio o hora exacta, NO hacemos nada
     if (!serviceId || !startISO) return;
 
     let cancelled = false;
 
-    // Reset solo cuando sí vamos a consultar
     setEmployees([]);
     setSelected(null);
     setError(null);
@@ -59,23 +57,21 @@ export function EmployeeSelector({
         }
       });
 
-    // 🧹 Cleanup para evitar renders fantasmas
     return () => {
       cancelled = true;
     };
   }, [serviceId, startISO, publicMode]);
 
-  // 🔐 El selector SOLO aparece cuando hay servicio + hora válida
   if (!serviceId || !startISO) return null;
 
   return (
-    <div className="mt-6 border-t pt-4 space-y-3">
+    <div className="mt-6 border-t border-black/10 pt-4 space-y-3">
       <h3 className="font-semibold text-sm md:text-base">
         Selecciona empleada
       </h3>
 
       {loading && (
-        <p className="text-sm text-gray-500">
+        <p className="text-sm opacity-60">
           Cargando disponibilidad…
         </p>
       )}
@@ -99,11 +95,12 @@ export function EmployeeSelector({
               setSelected(e.id);
               onSelect(e.id);
             }}
-            className={`w-full text-left border rounded-lg px-4 py-3 transition ${
-              selected === e.id
-                ? 'border-black bg-gray-50'
-                : 'hover:border-gray-400'
-            }`}
+            className={`w-full text-left rounded-lg px-4 py-3 transition border
+              ${
+                selected === e.id
+                  ? 'border-emerald-400 ring-2 ring-emerald-400/40 bg-emerald-500/10'
+                  : 'border-black/10 hover:border-black/30'
+              }`}
           >
             {e.name}
           </button>

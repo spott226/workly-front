@@ -91,39 +91,48 @@ export function BusinessPublicEditor() {
 
   if (loading) return <p className="text-sm">Cargando…</p>;
 
+  const activeTheme = BUSINESS_THEMES[form.theme_variant];
+  const activeFont = FONT_PRESETS[form.font_variant];
+
   /* =========================
      RENDER
   ========================= */
 
   return (
     <div className="space-y-6 max-w-xl">
+      {/* TITLE */}
       <input
         className="w-full border px-3 py-2 rounded"
         placeholder="Título público"
         value={form.public_title}
+        maxLength={50}
         onChange={(e) =>
           setForm((f) => ({ ...f, public_title: e.target.value }))
         }
       />
 
+      {/* DESCRIPTION */}
       <textarea
         className="w-full border px-3 py-2 rounded"
-        placeholder="Descripción"
+        placeholder="Descripción larga"
         value={form.public_description}
         onChange={(e) =>
           setForm((f) => ({ ...f, public_description: e.target.value }))
         }
       />
 
+      {/* CTA */}
       <input
         className="w-full border px-3 py-2 rounded"
         placeholder="Texto del botón"
         value={form.cta_text}
+        maxLength={18}
         onChange={(e) =>
           setForm((f) => ({ ...f, cta_text: e.target.value }))
         }
       />
 
+      {/* THEME SELECT */}
       <select
         className="w-full border px-3 py-2 rounded"
         value={form.theme_variant}
@@ -141,6 +150,39 @@ export function BusinessPublicEditor() {
         ))}
       </select>
 
+      {/* THEME PREVIEW */}
+      <div className="rounded-xl overflow-hidden border border-black/10">
+        <div
+          className={`p-4 text-sm ${activeTheme.page} ${activeFont.className}`}
+        >
+          <div
+            className={`mb-3 p-3 rounded-lg ${activeTheme.hero}`}
+          >
+            <p className="font-semibold">Vista previa</p>
+            <p className="text-xs opacity-80">
+              Así se verá tu página pública
+            </p>
+          </div>
+
+          <div className={`${activeTheme.card} mb-3`}>
+            <p className="text-sm font-medium">
+              Card de contenido
+            </p>
+            <p className="text-xs opacity-70">
+              Servicios, empleados, formularios
+            </p>
+          </div>
+
+          <button
+            type="button"
+            className={`w-full py-2 rounded-lg text-sm ${activeTheme.button}`}
+          >
+            Botón principal
+          </button>
+        </div>
+      </div>
+
+      {/* FONT SELECT */}
       <select
         className="w-full border px-3 py-2 rounded"
         value={form.font_variant}
@@ -158,6 +200,7 @@ export function BusinessPublicEditor() {
         ))}
       </select>
 
+      {/* SAVE */}
       <button
         onClick={handleSave}
         disabled={saving}

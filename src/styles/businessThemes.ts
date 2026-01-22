@@ -13,12 +13,12 @@ export type BusinessTheme = {
 };
 
 /* =========================
-   THEMES (AJUSTE VISUAL – ADIÓS BLANCO BETA)
+   BUSINESS THEMES – PRO EDITION
 ========================= */
 
 export const BUSINESS_THEMES = {
   spa: {
-    label: 'Spa / Relajación',
+    label: 'Spa natural',
     page: 'bg-[#F4FAF7] text-stone-800',
     hero: 'bg-gradient-to-b from-[#E2F2EC] to-[#F4FAF7]',
     card: `bg-[#F9FDFC] ${TOKENS.radius.lg} ${TOKENS.shadow.soft} ${TOKENS.spacing.card}`,
@@ -27,7 +27,7 @@ export const BUSINESS_THEMES = {
   },
 
   holistic: {
-    label: 'Centro Holístico',
+    label: 'Holístico profundo',
     page: 'bg-[#0E1C16] text-[#EAF5EE]',
     hero: 'bg-gradient-to-b from-[#142820] to-[#0E1C16]',
     card: `bg-[#162B22] ${TOKENS.radius.lg} ${TOKENS.shadow.medium} ${TOKENS.spacing.card}`,
@@ -36,7 +36,7 @@ export const BUSINESS_THEMES = {
   },
 
   beauty: {
-    label: 'Salón de Belleza',
+    label: 'Beauty glam',
     page: 'bg-[#FDF4F8] text-[#3A1F2D]',
     hero: 'bg-gradient-to-b from-[#FCE7F3] to-[#FDF4F8]',
     card: `bg-[#FFF9FB] ${TOKENS.radius.lg} ${TOKENS.shadow.medium} ${TOKENS.spacing.card}`,
@@ -45,19 +45,55 @@ export const BUSINESS_THEMES = {
   },
 
   clinic: {
-    label: 'Clínica / Consultorio',
+    label: 'Clínico moderno',
     page: 'bg-[#F5F7FA] text-slate-900',
     hero: 'bg-gradient-to-b from-[#E2E8F0] to-[#F5F7FA]',
-    card: `bg-[#FFFFFF]/90 backdrop-blur ${TOKENS.radius.md} ${TOKENS.shadow.soft} ${TOKENS.spacing.card}`,
+    card: `bg-white/90 backdrop-blur ${TOKENS.radius.md} ${TOKENS.shadow.soft} ${TOKENS.spacing.card}`,
     button:
       'bg-sky-600 text-white hover:bg-sky-500 transition-all',
   },
 
   barber: {
-    label: 'Barbería',
+    label: 'Barber dark',
     page: 'bg-black text-white',
     hero: 'bg-gradient-to-b from-neutral-900 to-black',
     card: `bg-neutral-900 ${TOKENS.radius.md} ${TOKENS.shadow.luxury} ${TOKENS.spacing.card}`,
+    button:
+      'bg-white text-black hover:bg-neutral-200 transition-all',
+  },
+
+  luxuryDark: {
+    label: 'Luxury dark',
+    page: 'bg-[#0B0B0C] text-[#EDEDED]',
+    hero: 'bg-gradient-to-b from-[#1A1A1C] to-[#0B0B0C]',
+    card: `bg-[#141416] ${TOKENS.radius.lg} ${TOKENS.shadow.luxury} ${TOKENS.spacing.card}`,
+    button:
+      'bg-[#C9A24D] text-black hover:bg-[#D4B15F] transition-all',
+  },
+
+  editorialWhite: {
+    label: 'Editorial premium',
+    page: 'bg-[#FAFAFA] text-neutral-900',
+    hero: 'bg-gradient-to-b from-white to-[#FAFAFA]',
+    card: `bg-white ${TOKENS.radius.lg} shadow-md ${TOKENS.spacing.card}`,
+    button:
+      'bg-black text-white hover:bg-neutral-800 transition-all',
+  },
+
+  warmSand: {
+    label: 'Warm sand spa',
+    page: 'bg-[#FBF6EF] text-[#3B2F2F]',
+    hero: 'bg-gradient-to-b from-[#F3E8D8] to-[#FBF6EF]',
+    card: `bg-[#FFFDF9] ${TOKENS.radius.lg} ${TOKENS.shadow.soft} ${TOKENS.spacing.card}`,
+    button:
+      'bg-[#B08968] text-white hover:bg-[#9C7557] transition-all',
+  },
+
+  neoBlack: {
+    label: 'Neo black',
+    page: 'bg-[#050505] text-[#E5E5E5]',
+    hero: 'bg-gradient-to-b from-[#111111] to-[#050505]',
+    card: `bg-[#0F0F0F] ${TOKENS.radius.md} ${TOKENS.shadow.luxury} ${TOKENS.spacing.card}`,
     button:
       'bg-white text-black hover:bg-neutral-200 transition-all',
   },

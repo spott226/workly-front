@@ -66,7 +66,8 @@ export default function BusinessPublicClient({ slug }: Props) {
       !draft.clientName.trim() ||
       !draft.phone.trim() ||
       !draft.dateTime
-    ) return;
+    )
+      return;
 
     setLoading(true);
     setError(null);
@@ -117,8 +118,8 @@ export default function BusinessPublicClient({ slug }: Props) {
           slug={slug}
           onBusinessLoaded={(biz: any) => {
             setBusiness(biz);
-            setOpeningTime(biz.opening_time);
-            setClosingTime(biz.closing_time);
+            setOpeningTime(biz.opening_time ?? null);
+            setClosingTime(biz.closing_time ?? null);
           }}
         />
 

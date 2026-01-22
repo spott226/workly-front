@@ -27,11 +27,9 @@ export function ServiceSelector({
   const [selected, setSelected] = useState<string | null>(null);
 
   useEffect(() => {
-    // 🔄 limpiar estado al cambiar contexto
     setServices([]);
     setSelected(null);
 
-    // 🌍 PÚBLICO → servicios por SLUG (endpoint correcto)
     if (publicMode && slug) {
       apiFetch<Service[]>(
         `/services/public?slug=${slug}`,
@@ -44,7 +42,6 @@ export function ServiceSelector({
       return;
     }
 
-    // 🏢 INTERNO → servicios por sesión (business_id)
     apiFetch<Service[]>('/services')
       .then((res) => {
         setServices(Array.isArray(res) ? res : []);
@@ -59,7 +56,7 @@ export function ServiceSelector({
       </h3>
 
       {services.length === 0 && (
-        <p className="text-sm text-gray-500">
+        <p className="text-sm opacity-60">
           No hay servicios disponibles
         </p>
       )}
@@ -73,11 +70,12 @@ export function ServiceSelector({
               setSelected(s.id);
               onSelect(s.id);
             }}
-            className={`w-full text-left border rounded-lg p-4 transition ${
-              selected === s.id
-                ? 'border-black bg-gray-50'
-                : 'hover:border-gray-400'
-            }`}
+            className={`w-full text-left rounded-lg p-4 transition border
+              ${
+                selected === s.id
+                  ? 'border-emerald-400 ring-2 ring-emerald-400/40 bg-emerald-500/10'
+                  : 'border-black/10 hover:border-black/30'
+              }`}
           >
             <div className="flex items-center justify-between gap-2">
               <span className="font-medium truncate">
@@ -88,7 +86,7 @@ export function ServiceSelector({
               </span>
             </div>
 
-            <p className="text-sm text-gray-500 mt-1">
+            <p className="text-sm opacity-70 mt-1">
               {s.duration_minutes} minutos
             </p>
           </button>
