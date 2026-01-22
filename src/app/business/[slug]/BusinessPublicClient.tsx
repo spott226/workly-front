@@ -14,9 +14,7 @@ import Link from 'next/link';
    TYPES
 ========================= */
 
-type Props = {
-  slug: string;
-};
+type Props = { slug: string };
 
 type Draft = {
   serviceId: string | null;
@@ -37,34 +35,46 @@ type PublicBusiness = {
 };
 
 /* =========================
-   🎨 THEME SYSTEM (SaaS-ready)
+   🎨 THEME SYSTEM (REAL)
 ========================= */
 
-const themeClasses: Record<string, string> = {
-  spa: `
-    bg-stone-50 text-stone-800
-    [&_button]:bg-stone-800
-    [&_button]:text-white
-    [&_button]:hover:bg-stone-700
-  `,
-  beauty: `
-    bg-white text-neutral-900
-    [&_button]:bg-pink-600
-    [&_button]:text-white
-    [&_button]:hover:bg-pink-700
-  `,
-  barber: `
-    bg-black text-white
-    [&_button]:bg-white
-    [&_button]:text-black
-    [&_button]:hover:bg-neutral-200
-  `,
-};
-
-const fontClasses: Record<string, string> = {
-  spa: 'font-serif',
-  modern: 'font-sans',
-  classic: 'font-serif tracking-wide',
+const THEMES: Record<string, any> = {
+  dental: {
+    page: 'bg-sky-50 text-slate-900 font-sans',
+    hero: 'bg-white border-b',
+    card: 'bg-white rounded-xl shadow-sm border border-slate-200',
+    button: 'bg-sky-600 text-white hover:bg-sky-700',
+  },
+  physio: {
+    page: 'bg-indigo-50 text-slate-900 font-sans',
+    hero: 'bg-gradient-to-b from-indigo-100 to-indigo-50',
+    card: 'bg-white rounded-xl shadow',
+    button: 'bg-indigo-600 text-white hover:bg-indigo-700',
+  },
+  beauty: {
+    page: 'bg-white text-neutral-900 font-sans',
+    hero: 'bg-gradient-to-b from-pink-50 to-white',
+    card: 'bg-white rounded-2xl shadow-md',
+    button: 'bg-pink-600 text-white hover:bg-pink-700',
+  },
+  barber: {
+    page: 'bg-neutral-950 text-white font-sans',
+    hero: 'bg-neutral-900',
+    card: 'bg-neutral-900 border border-neutral-800 rounded-lg',
+    button: 'bg-white text-black hover:bg-neutral-200',
+  },
+  spa: {
+    page: 'bg-stone-50 text-stone-800 font-serif',
+    hero: 'bg-gradient-to-b from-stone-200 to-stone-50',
+    card: 'bg-white rounded-2xl shadow-sm',
+    button: 'bg-stone-700 text-white hover:bg-stone-800',
+  },
+  holistic: {
+    page: 'bg-emerald-50 text-emerald-900 font-serif',
+    hero: 'bg-gradient-to-b from-emerald-100 to-emerald-50',
+    card: 'bg-white rounded-xl shadow-sm',
+    button: 'bg-emerald-600 text-white hover:bg-emerald-700',
+  },
 };
 
 /* =========================
@@ -83,71 +93,9 @@ export default function BusinessPublicClient({ slug }: Props) {
   const [business, setBusiness] = useState<PublicBusiness | null>(null);
   const [openingTime, setOpeningTime] = useState<string | null>(null);
   const [closingTime, setClosingTime] = useState<string | null>(null);
-
   const [loading, setLoading] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  /* =========================
-     RESET CUANDO CAMBIA SLUG
-  ========================= */
-  useEffect(() => {
-    setDraft({
-      serviceId: null,
-      employeeId: null,
-      clientName: '',
-      phone: '',
-      dateTime: null,
-    });
-
-    setBusiness(null);
-    setOpeningTime(null);
-    setClosingTime(null);
-    setConfirmed(false);
-    setError(null);
-  }, [slug]);
-
-  function canSubmit() {
-    return (
-      !!draft.serviceId &&
-      !!draft.employeeId &&
-      !!draft.clientName.trim() &&
-      !!draft.phone.trim() &&
-      !!draft.dateTime
-    );
-  }
-
-  async function handleSubmit() {
-    setLoading(true);
-    setError(null);
-
-    try {
-      await apiFetch('/appointments/public', {
-        method: 'POST',
-        public: true,
-        body: JSON.stringify({
-          slug,
-          serviceId: draft.serviceId,
-          employeeId: draft.employeeId,
-          startISO: draft.dateTime,
-          clientName: draft.clientName,
-          phone: draft.phone,
-        }),
-      });
-
-      setConfirmed(true);
-    } catch (e) {
-      setError(
-        e instanceof Error ? e.message : 'Error al crear la cita'
-      );
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  /* =========================
-     CONFIRMACIÓN
-  ========================= */
 
   if (confirmed) {
     return (
@@ -157,22 +105,13 @@ export default function BusinessPublicClient({ slug }: Props) {
     );
   }
 
-  /* =========================
-     RENDER
-  ========================= */
-
-  const theme = business?.theme_variant || 'spa';
-  const font = business?.font_variant || 'spa';
+  const themeKey = business?.theme_variant || 'spa';
+  const theme = THEMES[themeKey];
 
   return (
-    <main
-      className={`
-        min-h-screen
-        ${themeClasses[theme]}
-        ${fontClasses[font]}
-      `}
-    >
-      <div className="max-w-xl mx-auto px-4 py-6">
+    <main className={`${theme.page} min-h-screen`}>
+      {/* HERO */}
+      <section className={`${theme.hero} px-6 py-12 text-center`}>
         <BusinessHeader
           slug={slug}
           onBusinessLoaded={(biz: any) => {
@@ -183,100 +122,85 @@ export default function BusinessPublicClient({ slug }: Props) {
         />
 
         {business && (
-          <section className="text-center mt-6 space-y-2">
-            <h1 className="text-3xl font-semibold">
+          <>
+            <h1 className="text-4xl font-semibold mt-6">
               {business.public_title}
             </h1>
-
-            {business.public_description && (
-              <p className="opacity-80 text-sm leading-relaxed">
-                {business.public_description}
-              </p>
-            )}
-          </section>
+            <p className="mt-3 opacity-80">
+              {business.public_description}
+            </p>
+          </>
         )}
+      </section>
 
-        <div className="space-y-6 mt-6">
+      {/* BOOKING */}
+      <section className="max-w-xl mx-auto px-4 py-10 space-y-6">
+        <div className={theme.card}>
           <ServiceSelector
             slug={slug}
             publicMode
-            onSelect={(serviceId) => {
-              setDraft((d) => ({
-                ...d,
-                serviceId,
-                employeeId: null,
-                dateTime: null,
-              }));
-            }}
+            onSelect={(serviceId) =>
+              setDraft({ ...draft, serviceId, employeeId: null })
+            }
           />
+        </div>
 
+        <div className={theme.card}>
           <DateTimeSelector
             minTime={openingTime ?? undefined}
             maxTime={closingTime ?? undefined}
-            onSelect={(dateTime) => {
-              setError(null);
-              setDraft((d) => ({
-                ...d,
-                dateTime,
-                employeeId: null,
-              }));
-            }}
+            onSelect={(dateTime) =>
+              setDraft({ ...draft, dateTime, employeeId: null })
+            }
           />
+        </div>
 
+        <div className={theme.card}>
           <EmployeeSelector
             serviceId={draft.serviceId}
             startISO={draft.dateTime}
             publicMode
             onSelect={(employeeId) =>
-              setDraft((d) => ({ ...d, employeeId }))
+              setDraft({ ...draft, employeeId })
             }
           />
+        </div>
 
+        <div className={theme.card}>
           <ClientForm
             clientName={draft.clientName}
             phone={draft.phone}
             onChange={(data) =>
-              setDraft((d) => ({ ...d, ...data }))
+              setDraft({ ...draft, ...data })
             }
           />
-
-          {error && (
-            <p className="text-red-500 text-sm font-medium">
-              {error}
-            </p>
-          )}
-
-          <p className="text-xs opacity-70 text-center leading-relaxed">
-            Al crear la cita aceptas los{' '}
-            <Link
-              href="/legal/terminos"
-              className="underline"
-              target="_blank"
-            >
-              Términos y Condiciones
-            </Link>{' '}
-            y la{' '}
-            <Link
-              href="/legal/privacidad"
-              className="underline"
-              target="_blank"
-            >
-              Política de Privacidad
-            </Link>{' '}
-            de Workly.
-          </p>
-
-          <button
-            disabled={!canSubmit() || loading}
-            onClick={handleSubmit}
-            className="w-full py-3 rounded transition disabled:opacity-40"
-          >
-            {loading
-              ? 'Creando cita…'
-              : business?.cta_text || 'Crear cita'}
-          </button>
         </div>
-      </div>
+
+        {error && (
+          <p className="text-red-500 text-sm font-medium">
+            {error}
+          </p>
+        )}
+
+        <button
+          disabled={loading}
+          onClick={() => {}}
+          className={`w-full py-4 rounded-xl text-lg transition ${theme.button}`}
+        >
+          {business?.cta_text || 'Reservar cita'}
+        </button>
+
+        <p className="text-xs opacity-70 text-center">
+          Al crear la cita aceptas los{' '}
+          <Link href="/legal/terminos" className="underline">
+            Términos
+          </Link>{' '}
+          y la{' '}
+          <Link href="/legal/privacidad" className="underline">
+            Política de Privacidad
+          </Link>
+        </p>
+      </section>
     </main>
   );
 }
