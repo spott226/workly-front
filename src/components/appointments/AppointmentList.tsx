@@ -2,8 +2,10 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { DateTime } from 'luxon';
+
 import { Appointment, getAppointments } from '@/lib/appointments';
 import { AppointmentCard } from './AppointmentCard';
+import WeekCalendar from '@/components/calendar/WeekCalendar';
 
 type Period = 'day' | 'week' | 'month' | 'year';
 
@@ -19,7 +21,11 @@ export function AppointmentList() {
   const [loading, setLoading] = useState(true);
 
   const [period, setPeriod] = useState<Period>('day');
-  const currentYear = DateTime.now().setZone('America/Mexico_City').year;
+  const [activeDate, setActiveDate] = useState(
+    DateTime.now().setZone('America/Mexico_City')
+  );
+
+  const currentYear = activeDate.year;
   const [year, setYear] = useState(currentYear);
   const [month, setMonth] = useState<number | null>(null);
   const [page, setPage] = useState(1);
@@ -35,29 +41,38 @@ export function AppointmentList() {
     loadAppointments();
   }, []);
 
-  const todayMX = DateTime.now().setZone('America/Mexico_City');
-
+  /* =========================
+     FILTER APPOINTMENTS
+  ========================= */
   const filtered = useMemo(() => {
     return appointments.filter(a => {
       const d = DateTime
         .fromISO(a.starts_at, { zone: 'utc' })
         .setZone('America/Mexico_City');
 
-      if (period === 'year') return d.year === year;
+      if (period === 'year') {
+        return d.year === year;
+      }
 
       if (period === 'month') {
-        const m = month ?? todayMX.month - 1;
+        const m = month ?? activeDate.month - 1;
         return d.year === year && d.month - 1 === m;
       }
 
       if (period === 'week') {
-        return d >= todayMX.startOf('week') && d <= todayMX.endOf('week');
+        return (
+          d >= activeDate.startOf('week') &&
+          d <= activeDate.endOf('week')
+        );
       }
 
-      return d.hasSame(todayMX, 'day');
+      return d.hasSame(activeDate, 'day');
     });
-  }, [appointments, period, year, month, todayMX]);
+  }, [appointments, period, year, month, activeDate]);
 
+  /* =========================
+     PAGINATION
+  ========================= */
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
 
   const statusPriority: Record<string, number> = {
@@ -82,10 +97,15 @@ export function AppointmentList() {
 
   useEffect(() => {
     setPage(1);
-  }, [period, year, month]);
+  }, [period, year, month, activeDate]);
 
-  if (loading) return <p className="text-sm text-gray-500">Cargando citas…</p>;
-  if (!appointments.length) return <p className="text-sm text-gray-500">No hay citas.</p>;
+  if (loading) {
+    return <p className="text-sm text-gray-500">Cargando citas…</p>;
+  }
+
+  if (!appointments.length) {
+    return <p className="text-sm text-gray-500">No hay citas.</p>;
+  }
 
   return (
     <div className="space-y-6">
@@ -97,13 +117,18 @@ export function AppointmentList() {
               key={p}
               onClick={() => {
                 setPeriod(p);
+                if (p === 'day') {
+                  setActiveDate(
+                    DateTime.now().setZone('America/Mexico_City')
+                  );
+                }
                 if (p !== 'month') setMonth(null);
               }}
               className={`px-4 py-2 text-sm rounded-md border ${
                 period === p ? 'bg-black text-white' : 'bg-white'
               }`}
             >
-              {p === 'day' && 'Hoy'}
+              {p === 'day' && 'Día'}
               {p === 'week' && 'Semana'}
               {p === 'month' && 'Mes'}
               {p === 'year' && 'Año'}
@@ -136,6 +161,21 @@ export function AppointmentList() {
           )}
         </div>
       </div>
+
+      {/* CALENDARIO */}
+      {(period === 'day' || period === 'week') && (
+        <div className="mb-8">
+          <WeekCalendar
+            appointments={filtered}
+            viewMode={period}
+            activeDate={activeDate}
+            onDaySelect={(d) => {
+              setActiveDate(d);
+              setPeriod('day');
+            }}
+          />
+        </div>
+      )}
 
       {/* LISTADO */}
       <div className="space-y-4">

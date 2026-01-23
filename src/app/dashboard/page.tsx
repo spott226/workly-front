@@ -2,25 +2,17 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { DateTime } from 'luxon';
 
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { apiFetch } from '@/lib/apiFetch';
+import { Appointment, getAppointments } from '@/lib/appointments';
+import WeekCalendar from '@/components/calendar/WeekCalendar';
+import StaffAvailability from '@/components/calendar/StaffAvailability';
 
-/* =========================
-   TYPES
-========================= */
 type Business = {
   id: string;
   name: string;
-};
-
-type AttendanceItem = {
-  employee_id: string;
-  first_name: string;
-  last_name: string;
-  status: 'PRESENT' | 'ABSENT';
-  check_in?: string | null;
-  check_out?: string | null;
 };
 
 type TodayAppointmentsSummary = {
@@ -30,14 +22,13 @@ type TodayAppointmentsSummary = {
   canceled: number;
 };
 
-/* =========================
-   PAGE
-========================= */
+type ViewMode = 'day' | 'week' | 'month';
+
 export default function DashboardPage() {
   const router = useRouter();
 
   const [business, setBusiness] = useState<Business | null>(null);
-  const [attendance, setAttendance] = useState<AttendanceItem[]>([]);
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [appointmentsSummary, setAppointmentsSummary] =
     useState<TodayAppointmentsSummary>({
       total: 0,
@@ -46,28 +37,19 @@ export default function DashboardPage() {
       canceled: 0,
     });
 
-  const [loading, setLoading] = useState(true);
-  const [showAttendance, setShowAttendance] = useState(true);
+  const [viewMode, setViewMode] = useState<ViewMode>('week');
+  const [activeDate, setActiveDate] = useState(
+    DateTime.now().setZone('America/Mexico_City')
+  );
 
-  /* =========================
-     LOAD DATA
-  ========================= */
+  const [loading, setLoading] = useState(true);
+
   useEffect(() => {
     async function load() {
       try {
         const biz = await apiFetch<Business>('/businesses/me');
         setBusiness(biz);
-      } catch {
-        setBusiness(null);
-      }
-
-      try {
-        const todayAttendance =
-          await apiFetch<AttendanceItem[]>('/employees/attendance/today');
-        setAttendance(todayAttendance);
-      } catch {
-        setAttendance([]);
-      }
+      } catch {}
 
       try {
         const summary =
@@ -75,13 +57,13 @@ export default function DashboardPage() {
             '/appointments/summary/today'
           );
         setAppointmentsSummary(summary);
+      } catch {}
+
+      try {
+        const all = await getAppointments();
+        setAppointments(all);
       } catch {
-        setAppointmentsSummary({
-          total: 0,
-          attended: 0,
-          pending: 0,
-          canceled: 0,
-        });
+        setAppointments([]);
       }
 
       setLoading(false);
@@ -90,91 +72,26 @@ export default function DashboardPage() {
     load();
   }, []);
 
-  /* =========================
-     CHECK-IN
-  ========================= */
-  const checkIn = async (employeeId: string) => {
-    await apiFetch(`/employees/${employeeId}/check-in`, {
-      method: 'POST',
-      body: JSON.stringify({ time: new Date().toISOString() }),
-    });
+  const filteredAppointments = useMemo(() => {
+    return appointments.filter(a => {
+      const d = DateTime
+        .fromISO(a.starts_at, { zone: 'utc' })
+        .setZone('America/Mexico_City');
 
-    const updated =
-      await apiFetch<AttendanceItem[]>('/employees/attendance/today');
+      if (viewMode === 'day') {
+        return d.hasSame(activeDate, 'day');
+      }
 
-    setAttendance(updated);
-  };
+      if (viewMode === 'month') {
+        return d.hasSame(activeDate, 'month');
+      }
 
-  /* =========================
-     CHECK-OUT
-  ========================= */
-  const checkOut = async (employeeId: string) => {
-    await apiFetch(`/employees/${employeeId}/check-out`, {
-      method: 'POST',
-      body: JSON.stringify({ time: new Date().toISOString() }),
-    });
-
-    const updated =
-      await apiFetch<AttendanceItem[]>('/employees/attendance/today');
-
-    setAttendance(updated);
-  };
-
-  /* =========================
-     FORMAT TIME
-  ========================= */
-  const formatTime = (iso?: string | null) => {
-    if (!iso) return '—';
-    const d = new Date(iso);
-    if (isNaN(d.getTime())) return '—';
-    return d.toLocaleTimeString('es-MX', {
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
-
-  /* =========================
-     DERIVED
-  ========================= */
-  const summary = useMemo(() => {
-    const totalEmployees = attendance.length;
-    const present = attendance.filter(a => a.status === 'PRESENT').length;
-    const absent = totalEmployees - present;
-
-    return {
-      totalEmployees,
-      present,
-      absent,
-    };
-  }, [attendance]);
-
-  const alerts = useMemo(() => {
-    const pendingCheckIn = attendance.filter(
-      a => !a.check_in
-    ).length;
-
-    const messages: string[] = [];
-
-    if (pendingCheckIn > 0) {
-      messages.push(
-        `${pendingCheckIn} empleado(s) aún no registran entrada`
+      return (
+        d >= activeDate.startOf('week') &&
+        d <= activeDate.endOf('week')
       );
-    }
-
-    if (appointmentsSummary.canceled > 0) {
-      messages.push(
-        `${appointmentsSummary.canceled} cita(s) cancelada(s) hoy`
-      );
-    }
-
-    if (appointmentsSummary.pending > 0) {
-      messages.push(
-        `${appointmentsSummary.pending} cita(s) pendiente(s) hoy`
-      );
-    }
-
-    return messages;
-  }, [attendance, appointmentsSummary]);
+    });
+  }, [appointments, viewMode, activeDate]);
 
   if (loading) {
     return (
@@ -205,26 +122,17 @@ export default function DashboardPage() {
         <h2 className="font-medium mb-3">Hoy</h2>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
           <div>
-            <p className="text-gray-500">Empleados presentes</p>
-            <p className="text-lg font-semibold">
-              {summary.present} / {summary.totalEmployees}
-            </p>
-          </div>
-
-          <div>
             <p className="text-gray-500">Citas hoy</p>
             <p className="text-lg font-semibold">
               {appointmentsSummary.total}
             </p>
           </div>
-
           <div>
             <p className="text-gray-500">Atendidas</p>
             <p className="text-lg font-semibold">
               {appointmentsSummary.attended}
             </p>
           </div>
-
           <div>
             <p className="text-gray-500">Pendientes</p>
             <p className="text-lg font-semibold">
@@ -234,77 +142,43 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* ALERTAS */}
-      {alerts.length > 0 && (
-        <div className="mb-6 border rounded p-4">
-          <h2 className="font-medium mb-2">Alertas</h2>
-          <ul className="list-disc pl-5 text-sm space-y-1">
-            {alerts.map((a, i) => (
-              <li key={i}>{a}</li>
-            ))}
-          </ul>
-        </div>
-      )}
+      {/* SELECTOR */}
+      <div className="flex gap-2 mb-4">
+        {(['day', 'week', 'month'] as ViewMode[]).map(v => (
+          <button
+            key={v}
+            onClick={() => setViewMode(v)}
+            className={`px-4 py-2 text-sm rounded border ${
+              viewMode === v ? 'bg-black text-white' : 'bg-white'
+            }`}
+          >
+            {v === 'day' && 'Día'}
+            {v === 'week' && 'Semana'}
+            {v === 'month' && 'Mes'}
+          </button>
+        ))}
+      </div>
 
-      {/* ASISTENCIAS */}
-      <div className="mb-6 border rounded">
-        <button
-          onClick={() => setShowAttendance(!showAttendance)}
-          className="w-full flex justify-between items-center p-4 font-medium"
-        >
-          <span>Asistencias de hoy</span>
-          <span>{showAttendance ? '–' : '+'}</span>
-        </button>
+      {/* CALENDARIO */}
+      <div className="mb-6 border rounded p-4">
+        <WeekCalendar
+          appointments={filteredAppointments}
+          viewMode={viewMode}
+          activeDate={activeDate}
+          onDaySelect={(d) => {
+            setActiveDate(d);
+            setViewMode('day');
+          }}
+        />
+      </div>
 
-        {showAttendance && (
-          <div className="p-4 border-t space-y-3">
-            {attendance.length === 0 && (
-              <p className="text-sm text-gray-500">
-                No hay empleados registrados.
-              </p>
-            )}
-
-            {attendance.map(e => (
-              <div
-                key={e.employee_id}
-                className="flex justify-between items-center border-b pb-2"
-              >
-                <div>
-                  <p className="font-medium">
-                    {e.first_name} {e.last_name}
-                  </p>
-                  <p className="text-sm text-gray-500">
-                    Entrada: {formatTime(e.check_in)}
-                  </p>
-                </div>
-
-                {!e.check_in && (
-                  <button
-                    onClick={() => checkIn(e.employee_id)}
-                    className="px-3 py-1 bg-green-600 text-white rounded"
-                  >
-                    Marcar entrada
-                  </button>
-                )}
-
-                {e.check_in && !e.check_out && (
-                  <button
-                    onClick={() => checkOut(e.employee_id)}
-                    className="px-3 py-1 bg-red-600 text-white rounded"
-                  >
-                    Marcar salida
-                  </button>
-                )}
-
-                {e.check_in && e.check_out && (
-                  <span className="text-green-600 text-sm">
-                    Asistencia completa
-                  </span>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
+      {/* DISPONIBILIDAD */}
+      <div className="mb-6 border rounded p-4">
+        <StaffAvailability
+          viewMode={viewMode}
+          activeDate={activeDate}
+          appointments={filteredAppointments}
+        />
       </div>
     </DashboardLayout>
   );

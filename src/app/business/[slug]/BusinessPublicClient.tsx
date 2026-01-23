@@ -150,21 +150,24 @@ export default function BusinessPublicClient({ slug }: Props) {
         )}
       </section>
 
-      {/* ================= BLOQUE CONFIANZA ================= */}
-      <section className="px-6 py-16">
-        <div
-          className={`max-w-3xl mx-auto text-center rounded-2xl ${theme.card}`}
-        >
-          <h2 className="text-2xl md:text-3xl font-semibold mb-4">
-            Agenda tu cita en menos de 1 minuto
-          </h2>
+     {/* ================= BLOQUE CONFIANZA ================= */}
+<section className="w-full py-24">
+  <div
+    className={`
+      max-w-5xl mx-auto px-6 text-center
+    `}
+  >
+    <h2 className="text-3xl md:text-4xl font-semibold mb-6">
+      Agenda tu cita en menos de 1 minuto
+    </h2>
 
-          <p className="text-base md:text-lg opacity-80 leading-relaxed">
-            Sin llamadas. Sin mensajes interminables.  
-            Confirmación inmediata y atención profesional desde el primer momento.
-          </p>
-        </div>
-      </section>
+    <p className="text-lg md:text-xl opacity-80 leading-relaxed max-w-3xl mx-auto">
+      Sin llamadas. Sin mensajes interminables.  
+      Confirmación inmediata y atención profesional desde el primer momento.
+    </p>
+  </div>
+</section>
+
 
       {/* ================= BOOKING ================= */}
       <section
