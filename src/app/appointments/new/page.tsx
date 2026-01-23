@@ -64,9 +64,7 @@ export default function NewAppointmentPage() {
 
       router.push('/appointments');
     } catch (e) {
-      setError(
-        e instanceof Error ? e.message : 'Error al crear la cita'
-      );
+      setError(e instanceof Error ? e.message : 'Error al crear la cita');
     } finally {
       setLoading(false);
     }
@@ -91,42 +89,27 @@ export default function NewAppointmentPage() {
           }
         />
 
-        {/* 2️⃣ DÍA */}
+        {/* 2️⃣ FECHA (SIEMPRE MAÑANA, LIMPIA) */}
         {draft.serviceId && (
           <div className="space-y-2">
             <h3 className="font-semibold">Selecciona el día</h3>
 
-            <div className="flex gap-2">
-              <button
-                onClick={() =>
-                  setDraft(d => ({
-                    ...d,
-                    date: DateTime.now().setZone(zone),
-                    employeeId: null,
-                    startISO: null,
-                  }))
-                }
-                className="px-3 py-2 border rounded"
-              >
-                Hoy
-              </button>
-
-              <button
-                onClick={() =>
-                  setDraft(d => ({
-                    ...d,
-                    date: DateTime.now()
-                      .setZone(zone)
-                      .plus({ days: 1 }),
-                    employeeId: null,
-                    startISO: null,
-                  }))
-                }
-                className="px-3 py-2 border rounded"
-              >
-                Mañana
-              </button>
-            </div>
+            <button
+              onClick={() =>
+                setDraft((d) => ({
+                  ...d,
+                  date: DateTime.now()
+                    .setZone(zone)
+                    .plus({ days: 1 })
+                    .startOf('day'),
+                  employeeId: null,
+                  startISO: null,
+                }))
+              }
+              className="px-3 py-2 border rounded"
+            >
+              Seleccionar fecha (mañana)
+            </button>
           </div>
         )}
 
@@ -136,7 +119,7 @@ export default function NewAppointmentPage() {
             serviceId={draft.serviceId}
             date={draft.date}
             onSelect={(employeeId, startISO) =>
-              setDraft(d => ({
+              setDraft((d) => ({
                 ...d,
                 employeeId,
                 startISO,
@@ -151,15 +134,13 @@ export default function NewAppointmentPage() {
             clientName={draft.clientName}
             phone={draft.phone}
             onChange={(data) =>
-              setDraft(d => ({ ...d, ...data }))
+              setDraft((d) => ({ ...d, ...data }))
             }
           />
         )}
 
         {error && (
-          <p className="text-sm text-red-600 font-medium">
-            {error}
-          </p>
+          <p className="text-sm text-red-600 font-medium">{error}</p>
         )}
 
         <button

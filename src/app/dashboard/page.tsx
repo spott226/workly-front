@@ -20,8 +20,8 @@ type View = 'day' | 'week' | 'month' | 'year';
 type Business = {
   id: string;
   name: string;
-  opening_time: string; // "08:00"
-  closing_time: string; // "20:00"
+  opening_time: string;
+  closing_time: string;
 };
 
 export default function DashboardPage() {
@@ -38,9 +38,7 @@ export default function DashboardPage() {
     useState<Appointment | null>(null);
   const [loading, setLoading] = useState(true);
 
-  /* =========================
-     LOAD INICIAL
-  ========================= */
+  /* LOAD */
   useEffect(() => {
     async function load() {
       try {
@@ -61,9 +59,7 @@ export default function DashboardPage() {
     load();
   }, []);
 
-  /* =========================
-     NAVEGACIÓN FECHAS
-  ========================= */
+  /* NAV */
   function move(delta: number) {
     if (view === 'day') setActiveDate(d => d.plus({ days: delta }));
     if (view === 'week') setActiveDate(d => d.plus({ weeks: delta }));
@@ -87,9 +83,6 @@ export default function DashboardPage() {
     );
   }
 
-  /* =========================
-     UI
-  ========================= */
   return (
     <DashboardLayout>
       {/* HEADER */}
@@ -135,7 +128,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* CALENDARIOS */}
+      {/* CALENDARIO */}
       <div className="border rounded p-4 mb-6">
         {view === 'day' && (
           <DayCalendar
@@ -159,16 +152,20 @@ export default function DashboardPage() {
           <MonthCalendar
             date={activeDate}
             appointments={appointments}
-            onDayClick={setActiveDate}
+            onDayClick={day => {
+              setActiveDate(day);
+              setView('day');
+            }}
           />
         )}
 
         {view === 'year' && (
           <YearCalendar
             date={activeDate}
-            onMonthClick={month =>
-              setActiveDate(month.set({ day: 1 }))
-            }
+            onMonthClick={month => {
+              setActiveDate(month.set({ day: 1 }));
+              setView('month');
+            }}
           />
         )}
       </div>

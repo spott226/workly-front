@@ -162,39 +162,26 @@ export default function BusinessPublicClient({ slug }: Props) {
           />
         </div>
 
+        {/* FECHA — SIEMPRE MAÑANA, LIMPIA */}
         {draft.serviceId && (
           <div className={theme.card}>
             <h3 className="font-semibold mb-2">Selecciona el día</h3>
-            <div className="flex gap-2">
-              <button
-                onClick={() =>
-                  setDraft(d => ({
-                    ...d,
-                    date: DateTime.now().setZone(zone),
-                    employeeId: null,
-                    startISO: null,
-                  }))
-                }
-                className="px-3 py-2 border rounded"
-              >
-                Hoy
-              </button>
-              <button
-                onClick={() =>
-                  setDraft(d => ({
-                    ...d,
-                    date: DateTime.now()
-                      .setZone(zone)
-                      .plus({ days: 1 }),
-                    employeeId: null,
-                    startISO: null,
-                  }))
-                }
-                className="px-3 py-2 border rounded"
-              >
-                Mañana
-              </button>
-            </div>
+            <button
+              onClick={() =>
+                setDraft(d => ({
+                  ...d,
+                  date: DateTime.now()
+                    .setZone(zone)
+                    .plus({ days: 1 })
+                    .startOf('day'),
+                  employeeId: null,
+                  startISO: null,
+                }))
+              }
+              className="px-3 py-2 border rounded"
+            >
+              Seleccionar fecha (mañana)
+            </button>
           </div>
         )}
 

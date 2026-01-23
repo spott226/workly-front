@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { DateTime } from 'luxon';
 import { apiFetch } from '@/lib/apiFetch';
+import { EmployeeTimeSelector } from './EmployeeTimeSelector';
 
 type Employee = {
   id: string;
@@ -29,16 +30,15 @@ export function EmployeeAvailability({
   const zone = 'America/Mexico_City';
 
   const [employees, setEmployees] = useState<Employee[]>([]);
-  const [slotsByEmployee, setSlotsByEmployee] = useState<
-    Record<string, Slot[]>
-  >({});
+  const [slotsByEmployee, setSlotsByEmployee] = useState<Record<string, Slot[]>>(
+    {}
+  );
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function load() {
       setLoading(true);
 
-      // 1️⃣ traer TODAS las empleadas
       const emps = await apiFetch<Employee[]>(
         '/employees',
         publicMode ? { public: true } : undefined
@@ -46,7 +46,6 @@ export function EmployeeAvailability({
 
       setEmployees(emps);
 
-      // 2️⃣ traer slots por empleada
       const map: Record<string, Slot[]> = {};
 
       await Promise.all(
@@ -74,37 +73,18 @@ export function EmployeeAvailability({
   return (
     <div className="space-y-4">
       {employees.map(emp => {
-        const slots = slotsByEmployee[emp.id] ?? [];
+        const slots = (slotsByEmployee[emp.id] ?? []).map(s =>
+          DateTime.fromISO(s.startISO, { zone: 'utc' }).setZone(zone)
+        );
 
         return (
           <div key={emp.id} className="border rounded p-3">
             <p className="font-medium mb-2">{emp.name}</p>
 
-            {slots.length === 0 ? (
-              <p className="text-sm text-gray-400">
-                Sin horarios disponibles
-              </p>
-            ) : (
-              <select
-                className="w-full border rounded px-3 py-2 text-sm"
-                onChange={e =>
-                  onSelect(emp.id, e.target.value)
-                }
-              >
-                <option value="">Selecciona horario</option>
-                {slots.map(s => {
-                  const t = DateTime
-                    .fromISO(s.startISO, { zone: 'utc' })
-                    .setZone(zone);
-
-                  return (
-                    <option key={s.startISO} value={s.startISO}>
-                      {t.toFormat('HH:mm')}
-                    </option>
-                  );
-                })}
-              </select>
-            )}
+            <EmployeeTimeSelector
+              slots={slots}
+              onSelect={iso => onSelect(emp.id, iso)}
+            />
           </div>
         );
       })}
