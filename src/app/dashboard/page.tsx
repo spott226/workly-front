@@ -2,20 +2,24 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { DateTime } from 'luxon';
+import { useRouter } from 'next/navigation';
 
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { apiFetch } from '@/lib/apiFetch';
 import { Appointment, getAppointments } from '@/lib/appointments';
 
 import WeekCalendar from '@/components/calendar/WeekCalendar';
-import StaffAvailability from '@/components/calendar/StaffAvailability';
+import TeamAvailability from '@/components/calendar/TeamAvailability';
 import { AppointmentCard } from '@/components/appointments/AppointmentCard';
 
+/* =========================
+   TIPOS
+========================= */
 type Business = {
   id: string;
   name: string;
-  opening_hour?: number; // ej: 8
-  closing_hour?: number; // ej: 20
+  opening_hour?: number;
+  closing_hour?: number;
 };
 
 type TodayAppointmentsSummary = {
@@ -28,6 +32,7 @@ type TodayAppointmentsSummary = {
 type View = 'day' | 'week' | 'month' | 'year';
 
 export default function DashboardPage() {
+  const router = useRouter();
   const zone = 'America/Mexico_City';
 
   /* =========================
@@ -35,15 +40,13 @@ export default function DashboardPage() {
   ========================= */
   const [business, setBusiness] = useState<Business | null>(null);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
-  const [appointmentsSummary, setAppointmentsSummary] =
+  const [summary, setSummary] =
     useState<TodayAppointmentsSummary>({
       total: 0,
       attended: 0,
       pending: 0,
       canceled: 0,
     });
-
-  const [loading, setLoading] = useState(true);
 
   const [view, setView] = useState<View>('week');
   const [activeDate, setActiveDate] = useState(
@@ -52,6 +55,8 @@ export default function DashboardPage() {
 
   const [selectedAppointment, setSelectedAppointment] =
     useState<Appointment | null>(null);
+
+  const [loading, setLoading] = useState(true);
 
   /* =========================
      LOAD
@@ -64,11 +69,11 @@ export default function DashboardPage() {
       } catch {}
 
       try {
-        const summary =
+        const s =
           await apiFetch<TodayAppointmentsSummary>(
             '/appointments/summary/today'
           );
-        setAppointmentsSummary(summary);
+        setSummary(s);
       } catch {}
 
       try {
@@ -126,48 +131,47 @@ export default function DashboardPage() {
   const openingHour = business?.opening_hour ?? 8;
   const closingHour = business?.closing_hour ?? 20;
 
+  /* =========================
+     UI
+  ========================= */
   return (
     <DashboardLayout>
       {/* HEADER */}
       <div className="flex justify-between mb-6">
         <h1 className="text-2xl font-bold">
-          Dashboard{business ? ` · ${business.name}` : ''}
+          Dashboard · {business?.name}
         </h1>
+
+        <button
+          onClick={() => router.push('/appointments/new')}
+          className="px-5 py-2 rounded bg-black text-white"
+        >
+          + Crear cita
+        </button>
       </div>
 
       {/* RESUMEN */}
-      <div className="mb-6 border rounded p-4">
-        <h2 className="font-medium mb-3">Hoy</h2>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-          <div>
-            <p className="text-gray-500">Citas hoy</p>
-            <p className="text-lg font-semibold">
-              {appointmentsSummary.total}
-            </p>
-          </div>
-          <div>
-            <p className="text-gray-500">Atendidas</p>
-            <p className="text-lg font-semibold">
-              {appointmentsSummary.attended}
-            </p>
-          </div>
-          <div>
-            <p className="text-gray-500">Pendientes</p>
-            <p className="text-lg font-semibold">
-              {appointmentsSummary.pending}
-            </p>
-          </div>
-          <div>
-            <p className="text-gray-500">Canceladas</p>
-            <p className="text-lg font-semibold">
-              {appointmentsSummary.canceled}
-            </p>
-          </div>
+      <div className="mb-6 border rounded p-4 grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+        <div>
+          <p className="text-gray-500">Hoy</p>
+          <p className="text-lg font-semibold">{summary.total}</p>
+        </div>
+        <div>
+          <p className="text-gray-500">Atendidas</p>
+          <p className="text-lg font-semibold">{summary.attended}</p>
+        </div>
+        <div>
+          <p className="text-gray-500">Pendientes</p>
+          <p className="text-lg font-semibold">{summary.pending}</p>
+        </div>
+        <div>
+          <p className="text-gray-500">Canceladas</p>
+          <p className="text-lg font-semibold">{summary.canceled}</p>
         </div>
       </div>
 
-      {/* SELECTOR DE VISTA */}
-      <div className="flex gap-2 mb-4">
+      {/* CONTROLES CALENDARIO */}
+      <div className="flex flex-wrap gap-2 mb-4 items-center">
         {(['day', 'week', 'month', 'year'] as View[]).map(v => (
           <button
             key={v}
@@ -182,6 +186,40 @@ export default function DashboardPage() {
             {v === 'year' && 'Año'}
           </button>
         ))}
+
+        {/* NAVEGACIÓN FECHA */}
+        <div className="flex gap-2 ml-auto">
+          <button
+            onClick={() =>
+              setActiveDate(
+                activeDate.minus({ [view]: 1 } as any)
+              )
+            }
+            className="px-3 py-2 border rounded"
+          >
+            ←
+          </button>
+
+          <button
+            onClick={() =>
+              setActiveDate(DateTime.now().setZone(zone))
+            }
+            className="px-3 py-2 border rounded"
+          >
+            Hoy
+          </button>
+
+          <button
+            onClick={() =>
+              setActiveDate(
+                activeDate.plus({ [view]: 1 } as any)
+              )
+            }
+            className="px-3 py-2 border rounded"
+          >
+            →
+          </button>
+        </div>
       </div>
 
       {/* CALENDARIO */}
@@ -189,23 +227,21 @@ export default function DashboardPage() {
         <WeekCalendar
           appointments={filteredAppointments}
           startDate={activeDate}
-          onAppointmentClick={(appt) =>
-            setSelectedAppointment(appt)
-          }
+          onAppointmentClick={setSelectedAppointment}
         />
       </div>
 
-      {/* DISPONIBILIDAD STAFF (HOY / SEMANA) */}
+      {/* DISPONIBILIDAD DEL EQUIPO — INTERACTIVA */}
       {(view === 'day' || view === 'week') && (
         <div className="mb-6 border rounded p-4">
           <h2 className="font-medium mb-3">
-            Disponibilidad del staff
+            Disponibilidad del equipo ·{' '}
+            {activeDate.toFormat('dd LLL yyyy')}
           </h2>
 
-          <StaffAvailability
-            appointments={filteredAppointments}
-            viewMode={view}
-            activeDate={activeDate}
+          <TeamAvailability
+            appointments={appointments}
+            selectedDate={activeDate}
             openingHour={openingHour}
             closingHour={closingHour}
           />
@@ -218,7 +254,7 @@ export default function DashboardPage() {
           <div className="bg-white rounded-lg w-full max-w-xl relative">
             <button
               onClick={() => setSelectedAppointment(null)}
-              className="absolute top-3 right-3 text-gray-500"
+              className="absolute top-3 right-3"
             >
               ✕
             </button>
