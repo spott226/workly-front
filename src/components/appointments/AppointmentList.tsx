@@ -32,7 +32,6 @@ export function AppointmentList() {
     loadAppointments();
   }, []);
 
-  // limpiar selección al cambiar vista
   useEffect(() => {
     setSelected(null);
   }, [period, activeDate]);
@@ -64,7 +63,6 @@ export function AppointmentList() {
         );
       }
 
-      // year
       return d.year === activeDate.year;
     });
   }, [appointments, period, activeDate]);
@@ -109,10 +107,11 @@ export function AppointmentList() {
         ))}
       </div>
 
-      {/* CALENDARIO (UNA SOLA BASE) */}
+      {/* CALENDARIO */}
       <div className="border rounded p-4">
         <WeekCalendar
           appointments={filtered}
+          startDate={activeDate}
           onAppointmentClick={(a) => setSelected(a)}
         />
       </div>

@@ -1,13 +1,13 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { DateTime } from 'luxon';
 
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { apiFetch } from '@/lib/apiFetch';
 import { Appointment, getAppointments } from '@/lib/appointments';
 import WeekCalendar from '@/components/calendar/WeekCalendar';
+import { AppointmentCard } from '@/components/appointments/AppointmentCard';
 
 type Business = {
   id: string;
@@ -22,7 +22,7 @@ type TodayAppointmentsSummary = {
 };
 
 export default function DashboardPage() {
-  const router = useRouter();
+  const zone = 'America/Mexico_City';
 
   const [business, setBusiness] = useState<Business | null>(null);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
@@ -33,6 +33,9 @@ export default function DashboardPage() {
       pending: 0,
       canceled: 0,
     });
+
+  const [selectedAppointment, setSelectedAppointment] =
+    useState<Appointment | null>(null);
 
   const [loading, setLoading] = useState(true);
 
@@ -65,12 +68,12 @@ export default function DashboardPage() {
   }, []);
 
   const filteredAppointments = useMemo(() => {
-    const today = DateTime.now().setZone('America/Mexico_City');
+    const today = DateTime.now().setZone(zone);
 
     return appointments.filter(a => {
       const d = DateTime
         .fromISO(a.starts_at, { zone: 'utc' })
-        .setZone('America/Mexico_City');
+        .setZone(zone);
 
       return (
         d >= today.startOf('week') &&
@@ -94,13 +97,6 @@ export default function DashboardPage() {
         <h1 className="text-2xl font-bold">
           Dashboard{business ? ` · ${business.name}` : ''}
         </h1>
-
-        <button
-          onClick={() => router.push('/appointments/new')}
-          className="px-5 py-2 rounded bg-black text-white"
-        >
-          + Crear cita
-        </button>
       </div>
 
       {/* RESUMEN */}
@@ -137,15 +133,30 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* CALENDARIO SEMANAL */}
+      {/* CALENDARIO */}
       <div className="mb-6 border rounded p-4">
         <WeekCalendar
           appointments={filteredAppointments}
+          startDate={DateTime.now().setZone(zone)}
           onAppointmentClick={(appt) => {
-            router.push(`/appointments/${appt.id}`);
+            setSelectedAppointment(appt);
           }}
         />
       </div>
+
+      {/* DETALLE CITA */}
+      {selectedAppointment && (
+        <div className="border rounded p-4">
+          <AppointmentCard
+            appointment={selectedAppointment}
+            onChange={async () => {
+              const all = await getAppointments();
+              setAppointments(all.filter(a => a.status !== 'CANCELLED'));
+              setSelectedAppointment(null);
+            }}
+          />
+        </div>
+      )}
     </DashboardLayout>
   );
 }

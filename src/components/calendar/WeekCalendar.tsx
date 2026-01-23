@@ -6,6 +6,7 @@ import { APPOINTMENT_COLORS } from './appointmentColors';
 
 type Props = {
   appointments: Appointment[];
+  startDate: DateTime;
   onAppointmentClick?: (appointment: Appointment) => void;
 };
 
@@ -13,11 +14,12 @@ const HOURS = Array.from({ length: 24 }, (_, i) => i);
 
 export default function WeekCalendar({
   appointments,
+  startDate,
   onAppointmentClick,
 }: Props) {
   const zone = 'America/Mexico_City';
 
-  const startOfWeek = DateTime.now()
+  const startOfWeek = startDate
     .setZone(zone)
     .startOf('week');
 
@@ -30,6 +32,7 @@ export default function WeekCalendar({
 
   return (
     <div className="border rounded overflow-x-auto">
+      {/* HEADER */}
       <div className="grid grid-cols-8 border-b bg-gray-50 text-sm">
         <div className="p-2 border-r"></div>
         {days.map(day => (
@@ -42,9 +45,11 @@ export default function WeekCalendar({
         ))}
       </div>
 
+      {/* GRID */}
       <div className="grid grid-cols-8 text-sm">
         {HOURS.map(hour => (
           <div key={hour} className="contents">
+            {/* HOUR LABEL */}
             <div className="border-r border-b p-2 text-right text-gray-500">
               {String(hour).padStart(2, '0')}:00
             </div>
