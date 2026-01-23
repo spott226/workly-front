@@ -11,9 +11,7 @@ type Service = {
 };
 
 type Props = {
-  onSelect: (serviceId: string) => void;
-
-  // 🔑 SOLO para sitio público
+  onSelect: (serviceId: string, durationMinutes: number) => void;
   slug?: string;
   publicMode?: boolean;
 };
@@ -25,28 +23,39 @@ export function ServiceSelector({
 }: Props) {
   const [services, setServices] = useState<Service[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    let cancelled = false;
+
     setServices([]);
     setSelected(null);
+    setLoading(true);
 
-    if (publicMode && slug) {
-      apiFetch<Service[]>(
-        `/services/public?slug=${slug}`,
-        { public: true }
-      )
-        .then((res) => {
+    const load = async () => {
+      try {
+        const res = publicMode && slug
+          ? await apiFetch<Service[]>(
+              `/services/public?slug=${slug}`,
+              { public: true }
+            )
+          : await apiFetch<Service[]>('/services');
+
+        if (!cancelled) {
           setServices(Array.isArray(res) ? res : []);
-        })
-        .catch(() => setServices([]));
-      return;
-    }
+        }
+      } catch {
+        if (!cancelled) setServices([]);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
 
-    apiFetch<Service[]>('/services')
-      .then((res) => {
-        setServices(Array.isArray(res) ? res : []);
-      })
-      .catch(() => setServices([]));
+    load();
+
+    return () => {
+      cancelled = true;
+    };
   }, [slug, publicMode]);
 
   return (
@@ -55,7 +64,13 @@ export function ServiceSelector({
         Selecciona servicio
       </h3>
 
-      {services.length === 0 && (
+      {loading && (
+        <p className="text-sm opacity-60">
+          Cargando servicios…
+        </p>
+      )}
+
+      {!loading && services.length === 0 && (
         <p className="text-sm opacity-60">
           No hay servicios disponibles
         </p>
@@ -68,7 +83,7 @@ export function ServiceSelector({
             type="button"
             onClick={() => {
               setSelected(s.id);
-              onSelect(s.id);
+              onSelect(s.id, s.duration_minutes);
             }}
             className={`w-full text-left rounded-lg p-4 transition border
               ${

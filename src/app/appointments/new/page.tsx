@@ -6,12 +6,13 @@ import { useRouter } from 'next/navigation';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { ServiceSelector } from '@/components/booking/ServiceSelector';
 import { EmployeeSelector } from '@/components/booking/EmployeeSelector';
-import { ClientForm } from '@/components/booking/ClientForm';
 import { DateTimeSelector } from '@/components/booking/DateTimeSelector';
+import { ClientForm } from '@/components/booking/ClientForm';
 import { apiFetch } from '@/lib/apiFetch';
 
 type AppointmentDraft = {
   serviceId: string | null;
+  serviceDuration: number | null;
   employeeId: string | null;
   clientName: string;
   phone: string;
@@ -23,6 +24,7 @@ export default function NewAppointmentPage() {
 
   const [draft, setDraft] = useState<AppointmentDraft>({
     serviceId: null,
+    serviceDuration: null,
     employeeId: null,
     clientName: '',
     phone: '',
@@ -35,29 +37,21 @@ export default function NewAppointmentPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  /* =========================
+     HORARIO DEL NEGOCIO
+  ========================= */
   useEffect(() => {
-    let mounted = true;
-
-    (async () => {
-      try {
-        const biz = await apiFetch<{
-          opening_time: string;
-          closing_time: string;
-        }>('/business/me');
-
-        if (!mounted) return;
-        setOpeningTime(biz.opening_time);
-        setClosingTime(biz.closing_time);
-      } catch {
-        if (!mounted) return;
+    apiFetch<{ opening_time: string; closing_time: string }>(
+      '/business/me'
+    )
+      .then((biz) => {
+        setOpeningTime(biz.opening_time ?? null);
+        setClosingTime(biz.closing_time ?? null);
+      })
+      .catch(() => {
         setOpeningTime(null);
         setClosingTime(null);
-      }
-    })();
-
-    return () => {
-      mounted = false;
-    };
+      });
   }, []);
 
   function canSubmit() {
@@ -101,35 +95,36 @@ export default function NewAppointmentPage() {
       <h1 className="text-xl font-bold mb-4">Nueva cita</h1>
 
       <div className="max-w-xl space-y-6">
-        {/* ✅ ServiceSelector devuelve SOLO ID */}
+        {/* 1️⃣ SERVICIO */}
         <ServiceSelector
-  onSelect={(serviceId) => {
-    setDraft((d) => ({
-      ...d,
-      serviceId,
-      employeeId: null,
-      dateTime: null,
-    }));
-  }}
-/>
+          onSelect={(serviceId, durationMinutes) => {
+            setDraft((d) => ({
+              ...d,
+              serviceId,
+              serviceDuration: durationMinutes,
+              employeeId: null,
+              dateTime: null,
+            }));
+          }}
+        />
 
+        {/* 2️⃣ FECHA Y HORA (LIMITADO POR HORARIO DEL NEGOCIO) */}
+        {draft.serviceId && (
+          <DateTimeSelector
+            minTime={openingTime ?? undefined}
+            maxTime={closingTime ?? undefined}
+            onSelect={(dateTime) => {
+              setError(null);
+              setDraft((d) => ({
+                ...d,
+                dateTime,
+                employeeId: null,
+              }));
+            }}
+          />
+        )}
 
-        <DateTimeSelector
-  minTime={openingTime ?? undefined}
-  maxTime={closingTime ?? undefined}
-  onSelect={(dateTime) => {
-    setError(null);
-    setDraft((d) => ({
-      ...d,
-      dateTime,
-      employeeId: null,
-    }));
-  }}
-/>
-
-
-
-        {/* ✅ SIEMPRE MONTADO */}
+        {/* 3️⃣ EMPLEADA (FILTRADA POR SERVICIO + HORARIO) */}
         <EmployeeSelector
           serviceId={draft.serviceId}
           startISO={draft.dateTime}
@@ -138,6 +133,7 @@ export default function NewAppointmentPage() {
           }
         />
 
+        {/* 4️⃣ CLIENTE */}
         <ClientForm
           clientName={draft.clientName}
           phone={draft.phone}

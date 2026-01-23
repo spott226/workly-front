@@ -59,7 +59,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
 
   /* =========================
-     LOAD
+     LOAD INICIAL
   ========================= */
   useEffect(() => {
     async function load() {
@@ -90,7 +90,7 @@ export default function DashboardPage() {
   }, []);
 
   /* =========================
-     FILTRADO POR VISTA
+     FILTRO POR VISTA
   ========================= */
   const filteredAppointments = useMemo(() => {
     return appointments.filter(a => {
@@ -98,9 +98,7 @@ export default function DashboardPage() {
         .fromISO(a.starts_at, { zone: 'utc' })
         .setZone(zone);
 
-      if (view === 'day') {
-        return d.hasSame(activeDate, 'day');
-      }
+      if (view === 'day') return d.hasSame(activeDate, 'day');
 
       if (view === 'week') {
         return (
@@ -170,7 +168,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* CONTROLES CALENDARIO */}
+      {/* CONTROLES */}
       <div className="flex flex-wrap gap-2 mb-4 items-center">
         {(['day', 'week', 'month', 'year'] as View[]).map(v => (
           <button
@@ -187,7 +185,6 @@ export default function DashboardPage() {
           </button>
         ))}
 
-        {/* NAVEGACIÓN FECHA */}
         <div className="flex gap-2 ml-auto">
           <button
             onClick={() =>
@@ -231,7 +228,7 @@ export default function DashboardPage() {
         />
       </div>
 
-      {/* DISPONIBILIDAD DEL EQUIPO — INTERACTIVA */}
+      {/* DISPONIBILIDAD */}
       {(view === 'day' || view === 'week') && (
         <div className="mb-6 border rounded p-4">
           <h2 className="font-medium mb-3">
@@ -248,7 +245,7 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* MODAL CITA */}
+      {/* MODAL */}
       {selectedAppointment && (
         <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
           <div className="bg-white rounded-lg w-full max-w-xl relative">

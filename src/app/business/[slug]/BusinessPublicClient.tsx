@@ -1,6 +1,8 @@
 'use client';
 
 import { useRef, useState } from 'react';
+import Link from 'next/link';
+
 import { BusinessHeader } from '@/components/business/BusinessHeader';
 import { ServiceSelector } from '@/components/booking/ServiceSelector';
 import { EmployeeSelector } from '@/components/booking/EmployeeSelector';
@@ -8,7 +10,6 @@ import { ClientForm } from '@/components/booking/ClientForm';
 import { DateTimeSelector } from '@/components/booking/DateTimeSelector';
 import { BookingConfirmation } from '@/components/booking/BookingConfirmation';
 import { apiFetch } from '@/lib/apiFetch';
-import Link from 'next/link';
 
 import { BUSINESS_THEMES } from '@/styles/businessThemes';
 import { FONT_PRESETS } from '@/styles/fontPresets';
@@ -21,6 +22,7 @@ type Props = { slug: string };
 
 type Draft = {
   serviceId: string | null;
+  serviceDuration: number | null;
   employeeId: string | null;
   clientName: string;
   phone: string;
@@ -46,6 +48,7 @@ export default function BusinessPublicClient({ slug }: Props) {
 
   const [draft, setDraft] = useState<Draft>({
     serviceId: null,
+    serviceDuration: null,
     employeeId: null,
     clientName: '',
     phone: '',
@@ -85,9 +88,12 @@ export default function BusinessPublicClient({ slug }: Props) {
           phone: draft.phone,
         }),
       });
+
       setConfirmed(true);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Error al crear la cita');
+      setError(
+        e instanceof Error ? e.message : 'Error al crear la cita'
+      );
     } finally {
       setLoading(false);
     }
@@ -108,13 +114,13 @@ export default function BusinessPublicClient({ slug }: Props) {
   const fontKey =
     (business?.font_variant as keyof typeof FONT_PRESETS) || 'elegant';
   const fontClass =
-    FONT_PRESETS[fontKey]?.className ?? FONT_PRESETS.elegant.className;
+    FONT_PRESETS[fontKey]?.className ??
+    FONT_PRESETS.elegant.className;
 
   return (
     <main className={`${theme.page} ${fontClass} min-h-screen`}>
       {/* ================= HERO ================= */}
       <section className={`${theme.hero} px-6 py-20 text-center`}>
-        {/* Loader invisible */}
         <div className="sr-only">
           <BusinessHeader
             slug={slug}
@@ -150,25 +156,6 @@ export default function BusinessPublicClient({ slug }: Props) {
         )}
       </section>
 
-     {/* ================= BLOQUE CONFIANZA ================= */}
-<section className="w-full py-24">
-  <div
-    className={`
-      max-w-5xl mx-auto px-6 text-center
-    `}
-  >
-    <h2 className="text-3xl md:text-4xl font-semibold mb-6">
-      Agenda tu cita en menos de 1 minuto
-    </h2>
-
-    <p className="text-lg md:text-xl opacity-80 leading-relaxed max-w-3xl mx-auto">
-      Sin llamadas. Sin mensajes interminables.  
-      Confirmación inmediata y atención profesional desde el primer momento.
-    </p>
-  </div>
-</section>
-
-
       {/* ================= BOOKING ================= */}
       <section
         ref={bookingRef}
@@ -178,10 +165,11 @@ export default function BusinessPublicClient({ slug }: Props) {
           <ServiceSelector
             slug={slug}
             publicMode
-            onSelect={(serviceId) =>
+            onSelect={(serviceId, durationMinutes) =>
               setDraft((d) => ({
                 ...d,
                 serviceId,
+                serviceDuration: durationMinutes,
                 employeeId: null,
                 dateTime: null,
               }))
@@ -225,7 +213,9 @@ export default function BusinessPublicClient({ slug }: Props) {
         </div>
 
         {error && (
-          <p className="text-red-500 text-sm font-medium">{error}</p>
+          <p className="text-red-500 text-sm font-medium">
+            {error}
+          </p>
         )}
 
         <button
