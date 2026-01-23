@@ -1,22 +1,21 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { ServiceSelector } from '@/components/booking/ServiceSelector';
 import { EmployeeSelector } from '@/components/booking/EmployeeSelector';
-import { DateTimeSelector } from '@/components/booking/DateTimeSelector';
+import { EmployeeAvailability } from '@/components/employees/EmployeeAvailability';
 import { ClientForm } from '@/components/booking/ClientForm';
 import { apiFetch } from '@/lib/apiFetch';
 
 type AppointmentDraft = {
   serviceId: string | null;
-  serviceDuration: number | null;
   employeeId: string | null;
+  startISO: string | null;
   clientName: string;
   phone: string;
-  dateTime: string | null;
 };
 
 export default function NewAppointmentPage() {
@@ -24,43 +23,22 @@ export default function NewAppointmentPage() {
 
   const [draft, setDraft] = useState<AppointmentDraft>({
     serviceId: null,
-    serviceDuration: null,
     employeeId: null,
+    startISO: null,
     clientName: '',
     phone: '',
-    dateTime: null,
   });
-
-  const [openingTime, setOpeningTime] = useState<string | null>(null);
-  const [closingTime, setClosingTime] = useState<string | null>(null);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  /* =========================
-     HORARIO DEL NEGOCIO
-  ========================= */
-  useEffect(() => {
-    apiFetch<{ opening_time: string; closing_time: string }>(
-      '/business/me'
-    )
-      .then((biz) => {
-        setOpeningTime(biz.opening_time ?? null);
-        setClosingTime(biz.closing_time ?? null);
-      })
-      .catch(() => {
-        setOpeningTime(null);
-        setClosingTime(null);
-      });
-  }, []);
 
   function canSubmit() {
     return (
       !!draft.serviceId &&
       !!draft.employeeId &&
+      !!draft.startISO &&
       !!draft.clientName.trim() &&
-      !!draft.phone.trim() &&
-      !!draft.dateTime
+      !!draft.phone.trim()
     );
   }
 
@@ -74,7 +52,7 @@ export default function NewAppointmentPage() {
         body: JSON.stringify({
           serviceId: draft.serviceId,
           employeeId: draft.employeeId,
-          startISO: draft.dateTime,
+          startISO: draft.startISO,
           clientName: draft.clientName,
           phone: draft.phone,
         }),
@@ -97,50 +75,50 @@ export default function NewAppointmentPage() {
       <div className="max-w-xl space-y-6">
         {/* 1️⃣ SERVICIO */}
         <ServiceSelector
-          onSelect={(serviceId, durationMinutes) => {
-            setDraft((d) => ({
-              ...d,
+          onSelect={(serviceId) =>
+            setDraft({
               serviceId,
-              serviceDuration: durationMinutes,
               employeeId: null,
-              dateTime: null,
-            }));
-          }}
+              startISO: null,
+              clientName: '',
+              phone: '',
+            })
+          }
         />
 
-        {/* 2️⃣ FECHA Y HORA (LIMITADO POR HORARIO DEL NEGOCIO) */}
-        {draft.serviceId && (
-          <DateTimeSelector
-            minTime={openingTime ?? undefined}
-            maxTime={closingTime ?? undefined}
-            onSelect={(dateTime) => {
-              setError(null);
-              setDraft((d) => ({
-                ...d,
-                dateTime,
-                employeeId: null,
-              }));
-            }}
+        {/* 2️⃣ EMPLEADA */}
+        <EmployeeSelector
+          serviceId={draft.serviceId}
+          onSelect={(employeeId) =>
+            setDraft((d) => ({
+              ...d,
+              employeeId,
+              startISO: null,
+            }))
+          }
+        />
+
+        {/* 3️⃣ HORARIOS (SLOTS REALES) */}
+        {draft.serviceId && draft.employeeId && (
+          <EmployeeAvailability
+            serviceId={draft.serviceId}
+            employeeId={draft.employeeId}
+            onSelect={(startISO) =>
+              setDraft((d) => ({ ...d, startISO }))
+            }
           />
         )}
 
-        {/* 3️⃣ EMPLEADA (FILTRADA POR SERVICIO + HORARIO) */}
-        <EmployeeSelector
-          serviceId={draft.serviceId}
-          startISO={draft.dateTime}
-          onSelect={(employeeId) =>
-            setDraft((d) => ({ ...d, employeeId }))
-          }
-        />
-
         {/* 4️⃣ CLIENTE */}
-        <ClientForm
-          clientName={draft.clientName}
-          phone={draft.phone}
-          onChange={(data) =>
-            setDraft((d) => ({ ...d, ...data }))
-          }
-        />
+        {draft.startISO && (
+          <ClientForm
+            clientName={draft.clientName}
+            phone={draft.phone}
+            onChange={(data) =>
+              setDraft((d) => ({ ...d, ...data }))
+            }
+          />
+        )}
 
         {error && (
           <p className="text-sm text-red-600 font-medium">

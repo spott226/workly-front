@@ -35,18 +35,14 @@ export default function DashboardPage() {
   const router = useRouter();
   const zone = 'America/Mexico_City';
 
-  /* =========================
-     STATE
-  ========================= */
   const [business, setBusiness] = useState<Business | null>(null);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
-  const [summary, setSummary] =
-    useState<TodayAppointmentsSummary>({
-      total: 0,
-      attended: 0,
-      pending: 0,
-      canceled: 0,
-    });
+  const [summary, setSummary] = useState<TodayAppointmentsSummary>({
+    total: 0,
+    attended: 0,
+    pending: 0,
+    canceled: 0,
+  });
 
   const [view, setView] = useState<View>('week');
   const [activeDate, setActiveDate] = useState(
@@ -59,7 +55,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
 
   /* =========================
-     LOAD INICIAL
+     LOAD
   ========================= */
   useEffect(() => {
     async function load() {
@@ -90,7 +86,7 @@ export default function DashboardPage() {
   }, []);
 
   /* =========================
-     FILTRO POR VISTA
+     FILTRO
   ========================= */
   const filteredAppointments = useMemo(() => {
     return appointments.filter(a => {
@@ -118,6 +114,17 @@ export default function DashboardPage() {
     });
   }, [appointments, view, activeDate]);
 
+  function move(delta: number) {
+    if (view === 'day')
+      setActiveDate(d => d.plus({ days: delta }));
+    if (view === 'week')
+      setActiveDate(d => d.plus({ weeks: delta }));
+    if (view === 'month')
+      setActiveDate(d => d.plus({ months: delta }));
+    if (view === 'year')
+      setActiveDate(d => d.plus({ years: delta }));
+  }
+
   if (loading) {
     return (
       <DashboardLayout>
@@ -129,9 +136,6 @@ export default function DashboardPage() {
   const openingHour = business?.opening_hour ?? 8;
   const closingHour = business?.closing_hour ?? 20;
 
-  /* =========================
-     UI
-  ========================= */
   return (
     <DashboardLayout>
       {/* HEADER */}
@@ -187,11 +191,7 @@ export default function DashboardPage() {
 
         <div className="flex gap-2 ml-auto">
           <button
-            onClick={() =>
-              setActiveDate(
-                activeDate.minus({ [view]: 1 } as any)
-              )
-            }
+            onClick={() => move(-1)}
             className="px-3 py-2 border rounded"
           >
             ←
@@ -207,11 +207,7 @@ export default function DashboardPage() {
           </button>
 
           <button
-            onClick={() =>
-              setActiveDate(
-                activeDate.plus({ [view]: 1 } as any)
-              )
-            }
+            onClick={() => move(1)}
             className="px-3 py-2 border rounded"
           >
             →
@@ -219,16 +215,46 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* CALENDARIO */}
-      <div className="mb-6 border rounded p-4">
-        <WeekCalendar
-          appointments={filteredAppointments}
-          startDate={activeDate}
-          onAppointmentClick={setSelectedAppointment}
-        />
-      </div>
+      {/* VISTA */}
+      {view === 'week' && (
+        <div className="mb-6 border rounded p-4">
+          <WeekCalendar
+            appointments={filteredAppointments}
+            startDate={activeDate}
+            onAppointmentClick={setSelectedAppointment}
+          />
+        </div>
+      )}
 
-      {/* DISPONIBILIDAD */}
+      {view !== 'week' && (
+        <div className="mb-6 border rounded p-4 space-y-3">
+          {filteredAppointments.length === 0 && (
+            <p className="text-sm text-gray-500">
+              No hay citas para esta vista.
+            </p>
+          )}
+
+          {filteredAppointments.map(a => (
+            <div
+              key={a.id}
+              onClick={() => setSelectedAppointment(a)}
+              className="border rounded p-3 cursor-pointer hover:bg-gray-50"
+            >
+              <p className="font-medium">
+                {a.client_name} · {a.service_name}
+              </p>
+              <p className="text-sm text-gray-500">
+                {DateTime.fromISO(a.starts_at, {
+                  zone: 'utc',
+                })
+                  .setZone(zone)
+                  .toFormat('dd LLL yyyy · HH:mm')}
+              </p>
+            </div>
+          ))}
+        </div>
+      )}
+
       {(view === 'day' || view === 'week') && (
         <div className="mb-6 border rounded p-4">
           <h2 className="font-medium mb-3">

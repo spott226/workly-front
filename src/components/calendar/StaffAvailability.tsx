@@ -7,16 +7,17 @@ type Props = {
   appointments: Appointment[];
   viewMode: 'day' | 'week';
   activeDate: DateTime;
+  onChangeDay?: (d: DateTime) => void;
 
-  // horario del negocio (DINÁMICO)
-  openingHour: number; // ej 8
-  closingHour: number; // ej 20
+  openingHour: number;
+  closingHour: number;
 };
 
 export default function StaffAvailability({
   appointments,
   viewMode,
   activeDate,
+  onChangeDay,
   openingHour,
   closingHour,
 }: Props) {
@@ -27,48 +28,48 @@ export default function StaffAvailability({
     (_, i) => openingHour + i
   );
 
-  // empleadas únicas
   const employees = Array.from(
     new Set(appointments.map(a => a.employee_name))
   );
 
-  // días de la semana (si view = week)
   const weekDays = Array.from({ length: 7 }, (_, i) =>
     activeDate.startOf('week').plus({ days: i })
   );
 
-  // día actualmente seleccionado
-  const selectedDay =
-    viewMode === 'day' ? activeDate : activeDate.startOf('day');
+  const day =
+    viewMode === 'day'
+      ? activeDate
+      : activeDate.startOf('day');
+
+  function overlaps(
+    slotStart: DateTime,
+    slotEnd: DateTime,
+    apptStart: DateTime,
+    apptEnd: DateTime
+  ) {
+    return slotStart < apptEnd && slotEnd > apptStart;
+  }
 
   return (
     <div className="space-y-6">
-      {/* SELECTOR DE DÍA (SOLO EN SEMANA) */}
-      {viewMode === 'week' && (
+      {viewMode === 'week' && onChangeDay && (
         <div className="flex gap-2 overflow-x-auto">
-          {weekDays.map(day => (
+          {weekDays.map(d => (
             <button
-              key={day.toISODate()}
-              onClick={() => {
-                activeDate.set({
-                  year: day.year,
-                  month: day.month,
-                  day: day.day,
-                });
-              }}
+              key={d.toISODate()}
+              onClick={() => onChangeDay(d)}
               className={`px-3 py-1 text-sm rounded border ${
-                day.hasSame(activeDate, 'day')
+                d.hasSame(activeDate, 'day')
                   ? 'bg-black text-white'
                   : ''
               }`}
             >
-              {day.toFormat('ccc dd')}
+              {d.toFormat('ccc dd')}
             </button>
           ))}
         </div>
       )}
 
-      {/* DISPONIBILIDAD */}
       {employees.length === 0 && (
         <p className="text-sm text-gray-500">
           No hay citas para mostrar disponibilidad.
@@ -81,12 +82,14 @@ export default function StaffAvailability({
 
           <div className="flex gap-1 items-center">
             {hours.map(h => {
-              const slot = activeDate.set({
+              const slotStart = day.set({
                 hour: h,
                 minute: 0,
                 second: 0,
                 millisecond: 0,
               });
+
+              const slotEnd = slotStart.plus({ hours: 1 });
 
               const busy = appointments.some(a => {
                 if (a.employee_name !== emp) return false;
@@ -99,10 +102,13 @@ export default function StaffAvailability({
                   .fromISO(a.ends_at, { zone: 'utc' })
                   .setZone(zone);
 
-                return (
-                  start.hasSame(activeDate, 'day') &&
-                  slot >= start &&
-                  slot < end
+                if (!start.hasSame(day, 'day')) return false;
+
+                return overlaps(
+                  slotStart,
+                  slotEnd,
+                  start,
+                  end
                 );
               });
 

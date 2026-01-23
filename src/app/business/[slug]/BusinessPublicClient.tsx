@@ -6,8 +6,8 @@ import Link from 'next/link';
 import { BusinessHeader } from '@/components/business/BusinessHeader';
 import { ServiceSelector } from '@/components/booking/ServiceSelector';
 import { EmployeeSelector } from '@/components/booking/EmployeeSelector';
+import { EmployeeAvailability } from '@/components/employees/EmployeeAvailability';
 import { ClientForm } from '@/components/booking/ClientForm';
-import { DateTimeSelector } from '@/components/booking/DateTimeSelector';
 import { BookingConfirmation } from '@/components/booking/BookingConfirmation';
 import { apiFetch } from '@/lib/apiFetch';
 
@@ -22,11 +22,10 @@ type Props = { slug: string };
 
 type Draft = {
   serviceId: string | null;
-  serviceDuration: number | null;
   employeeId: string | null;
+  startISO: string | null;
   clientName: string;
   phone: string;
-  dateTime: string | null;
 };
 
 type PublicBusiness = {
@@ -35,8 +34,6 @@ type PublicBusiness = {
   cta_text: string;
   theme_variant: string;
   font_variant: string;
-  opening_time?: string;
-  closing_time?: string;
 };
 
 /* =========================
@@ -48,16 +45,13 @@ export default function BusinessPublicClient({ slug }: Props) {
 
   const [draft, setDraft] = useState<Draft>({
     serviceId: null,
-    serviceDuration: null,
     employeeId: null,
+    startISO: null,
     clientName: '',
     phone: '',
-    dateTime: null,
   });
 
   const [business, setBusiness] = useState<PublicBusiness | null>(null);
-  const [openingTime, setOpeningTime] = useState<string | null>(null);
-  const [closingTime, setClosingTime] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -66,9 +60,9 @@ export default function BusinessPublicClient({ slug }: Props) {
     if (
       !draft.serviceId ||
       !draft.employeeId ||
+      !draft.startISO ||
       !draft.clientName.trim() ||
-      !draft.phone.trim() ||
-      !draft.dateTime
+      !draft.phone.trim()
     )
       return;
 
@@ -83,7 +77,7 @@ export default function BusinessPublicClient({ slug }: Props) {
           slug,
           serviceId: draft.serviceId,
           employeeId: draft.employeeId,
-          startISO: draft.dateTime,
+          startISO: draft.startISO,
           clientName: draft.clientName,
           phone: draft.phone,
         }),
@@ -126,8 +120,6 @@ export default function BusinessPublicClient({ slug }: Props) {
             slug={slug}
             onBusinessLoaded={(biz: any) => {
               setBusiness(biz);
-              setOpeningTime(biz.opening_time ?? null);
-              setClosingTime(biz.closing_time ?? null);
             }}
           />
         </div>
@@ -165,28 +157,14 @@ export default function BusinessPublicClient({ slug }: Props) {
           <ServiceSelector
             slug={slug}
             publicMode
-            onSelect={(serviceId, durationMinutes) =>
-              setDraft((d) => ({
-                ...d,
+            onSelect={(serviceId) =>
+              setDraft({
                 serviceId,
-                serviceDuration: durationMinutes,
                 employeeId: null,
-                dateTime: null,
-              }))
-            }
-          />
-        </div>
-
-        <div className={theme.card}>
-          <DateTimeSelector
-            minTime={openingTime ?? undefined}
-            maxTime={closingTime ?? undefined}
-            onSelect={(dateTime) =>
-              setDraft((d) => ({
-                ...d,
-                dateTime,
-                employeeId: null,
-              }))
+                startISO: null,
+                clientName: '',
+                phone: '',
+              })
             }
           />
         </div>
@@ -194,23 +172,41 @@ export default function BusinessPublicClient({ slug }: Props) {
         <div className={theme.card}>
           <EmployeeSelector
             serviceId={draft.serviceId}
-            startISO={draft.dateTime}
             publicMode
             onSelect={(employeeId) =>
-              setDraft((d) => ({ ...d, employeeId }))
+              setDraft((d) => ({
+                ...d,
+                employeeId,
+                startISO: null,
+              }))
             }
           />
         </div>
 
-        <div className={theme.card}>
-          <ClientForm
-            clientName={draft.clientName}
-            phone={draft.phone}
-            onChange={(data) =>
-              setDraft((d) => ({ ...d, ...data }))
-            }
-          />
-        </div>
+        {draft.serviceId && draft.employeeId && (
+          <div className={theme.card}>
+            <EmployeeAvailability
+              serviceId={draft.serviceId}
+              employeeId={draft.employeeId}
+              publicMode
+              onSelect={(startISO) =>
+                setDraft((d) => ({ ...d, startISO }))
+              }
+            />
+          </div>
+        )}
+
+        {draft.startISO && (
+          <div className={theme.card}>
+            <ClientForm
+              clientName={draft.clientName}
+              phone={draft.phone}
+              onChange={(data) =>
+                setDraft((d) => ({ ...d, ...data }))
+              }
+            />
+          </div>
+        )}
 
         {error && (
           <p className="text-red-500 text-sm font-medium">

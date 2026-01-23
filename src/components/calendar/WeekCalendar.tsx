@@ -11,6 +11,7 @@ type Props = {
 };
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
+const HOUR_HEIGHT = 64; // px
 
 export default function WeekCalendar({
   appointments,
@@ -46,64 +47,75 @@ export default function WeekCalendar({
       </div>
 
       {/* GRID */}
-      <div className="grid grid-cols-8 text-sm">
-        {HOURS.map(hour => (
-          <div key={hour} className="contents">
-            {/* HOUR LABEL */}
-            <div className="border-r border-b p-2 text-right text-gray-500">
+      <div className="grid grid-cols-8 text-sm relative">
+        {/* HOUR COLUMN */}
+        <div>
+          {HOURS.map(hour => (
+            <div
+              key={hour}
+              className="border-r border-b p-2 text-right text-gray-500"
+              style={{ height: HOUR_HEIGHT }}
+            >
               {String(hour).padStart(2, '0')}:00
             </div>
+          ))}
+        </div>
 
-            {days.map(day => {
-              const slotStart = day.set({
-                hour,
-                minute: 0,
-                second: 0,
-                millisecond: 0,
-              });
-              const slotEnd = slotStart.plus({ hours: 1 });
+        {/* DAYS COLUMNS */}
+        {days.map(day => (
+          <div key={day.toISODate()} className="relative">
+            {HOURS.map(hour => (
+              <div
+                key={hour}
+                className="border-r border-b"
+                style={{ height: HOUR_HEIGHT }}
+              />
+            ))}
 
-              const slotAppointments = appointments.filter(appt => {
+            {/* APPOINTMENTS */}
+            {appointments
+              .filter(appt => {
+                const start = toMX(appt.starts_at);
+                return start.hasSame(day, 'day');
+              })
+              .map(appt => {
                 const start = toMX(appt.starts_at);
                 const end = toMX(appt.ends_at);
 
+                const startHour = start.hour + start.minute / 60;
+                const durationMinutes =
+                  end.diff(start, 'minutes').minutes;
+
+                const top =
+                  startHour * HOUR_HEIGHT;
+                const height =
+                  (durationMinutes / 60) * HOUR_HEIGHT;
+
+                const color =
+                  APPOINTMENT_COLORS[appt.status] ??
+                  'bg-gray-400';
+
                 return (
-                  start < slotEnd &&
-                  end > slotStart &&
-                  start.hasSame(day, 'day')
+                  <div
+                    key={appt.id}
+                    onClick={() =>
+                      onAppointmentClick?.(appt)
+                    }
+                    className={`absolute left-1 right-1 rounded px-2 py-1 text-xs text-white cursor-pointer ${color}`}
+                    style={{
+                      top,
+                      height,
+                    }}
+                  >
+                    <p className="font-medium truncate">
+                      {appt.client_name}
+                    </p>
+                    <p className="truncate">
+                      {appt.service_name}
+                    </p>
+                  </div>
                 );
-              });
-
-              return (
-                <div
-                  key={`${day.toFormat('yyyy-LL-dd')}-${hour}`}
-                  className="border-r border-b h-16 relative"
-                >
-                  {slotAppointments.map(appt => {
-                    const color =
-                      APPOINTMENT_COLORS[appt.status] ??
-                      'bg-gray-400';
-
-                    return (
-                      <div
-                        key={appt.id}
-                        onClick={() =>
-                          onAppointmentClick?.(appt)
-                        }
-                        className={`absolute inset-1 rounded px-2 py-1 text-xs text-white cursor-pointer ${color}`}
-                      >
-                        <p className="font-medium truncate">
-                          {appt.client_name}
-                        </p>
-                        <p className="truncate">
-                          {appt.service_name}
-                        </p>
-                      </div>
-                    );
-                  })}
-                </div>
-              );
-            })}
+              })}
           </div>
         ))}
       </div>

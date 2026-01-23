@@ -27,6 +27,15 @@ export default function TeamAvailability({
     new Set(appointments.map(a => a.employee_name))
   );
 
+  function overlaps(
+    slotStart: DateTime,
+    slotEnd: DateTime,
+    apptStart: DateTime,
+    apptEnd: DateTime
+  ) {
+    return slotStart < apptEnd && slotEnd > apptStart;
+  }
+
   return (
     <div className="space-y-6">
       {team.length === 0 && (
@@ -48,6 +57,8 @@ export default function TeamAvailability({
                 millisecond: 0,
               });
 
+              const slotEnd = slotStart.plus({ hours: 1 });
+
               const busy = appointments.some(a => {
                 if (a.employee_name !== member) return false;
 
@@ -59,10 +70,13 @@ export default function TeamAvailability({
                   .fromISO(a.ends_at, { zone: 'utc' })
                   .setZone(zone);
 
-                return (
-                  start.hasSame(selectedDate, 'day') &&
-                  slotStart >= start &&
-                  slotStart < end
+                if (!start.hasSame(selectedDate, 'day')) return false;
+
+                return overlaps(
+                  slotStart,
+                  slotEnd,
+                  start,
+                  end
                 );
               });
 
