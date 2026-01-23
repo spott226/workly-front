@@ -22,25 +22,41 @@ export default function StaffAvailability({
     (_, i) => START_HOUR + i
   );
 
+  // Empleadas únicas sacadas de las citas
   const employees = Array.from(
     new Set(appointments.map(a => a.employee_name))
   );
 
   return (
     <div className="space-y-4">
+      {employees.length === 0 && (
+        <p className="text-sm text-gray-500">
+          No hay citas para mostrar disponibilidad.
+        </p>
+      )}
+
       {employees.map(emp => (
         <div key={emp}>
           <p className="text-sm font-medium mb-1">{emp}</p>
+
           <div className="flex gap-1">
             {hours.map(h => {
-              const slot = activeDate.set({ hour: h, minute: 0 });
+              const slot = activeDate.set({
+                hour: h,
+                minute: 0,
+                second: 0,
+                millisecond: 0,
+              });
 
               const busy = appointments.some(a => {
                 if (a.employee_name !== emp) return false;
 
-                const start = DateTime.fromISO(a.starts_at, { zone: 'utc' })
+                const start = DateTime
+                  .fromISO(a.starts_at, { zone: 'utc' })
                   .setZone('America/Mexico_City');
-                const end = DateTime.fromISO(a.ends_at, { zone: 'utc' })
+
+                const end = DateTime
+                  .fromISO(a.ends_at, { zone: 'utc' })
                   .setZone('America/Mexico_City');
 
                 return slot >= start && slot < end;
@@ -49,6 +65,7 @@ export default function StaffAvailability({
               return (
                 <div
                   key={h}
+                  title={`${h}:00`}
                   className={`h-4 w-6 rounded ${
                     busy ? 'bg-gray-300' : 'bg-green-500'
                   }`}

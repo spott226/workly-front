@@ -8,7 +8,6 @@ import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { apiFetch } from '@/lib/apiFetch';
 import { Appointment, getAppointments } from '@/lib/appointments';
 import WeekCalendar from '@/components/calendar/WeekCalendar';
-import StaffAvailability from '@/components/calendar/StaffAvailability';
 
 type Business = {
   id: string;
@@ -22,8 +21,6 @@ type TodayAppointmentsSummary = {
   canceled: number;
 };
 
-type ViewMode = 'day' | 'week' | 'month';
-
 export default function DashboardPage() {
   const router = useRouter();
 
@@ -36,11 +33,6 @@ export default function DashboardPage() {
       pending: 0,
       canceled: 0,
     });
-
-  const [viewMode, setViewMode] = useState<ViewMode>('week');
-  const [activeDate, setActiveDate] = useState(
-    DateTime.now().setZone('America/Mexico_City')
-  );
 
   const [loading, setLoading] = useState(true);
 
@@ -61,7 +53,7 @@ export default function DashboardPage() {
 
       try {
         const all = await getAppointments();
-        setAppointments(all);
+        setAppointments(all.filter(a => a.status !== 'CANCELLED'));
       } catch {
         setAppointments([]);
       }
@@ -73,25 +65,19 @@ export default function DashboardPage() {
   }, []);
 
   const filteredAppointments = useMemo(() => {
+    const today = DateTime.now().setZone('America/Mexico_City');
+
     return appointments.filter(a => {
       const d = DateTime
         .fromISO(a.starts_at, { zone: 'utc' })
         .setZone('America/Mexico_City');
 
-      if (viewMode === 'day') {
-        return d.hasSame(activeDate, 'day');
-      }
-
-      if (viewMode === 'month') {
-        return d.hasSame(activeDate, 'month');
-      }
-
       return (
-        d >= activeDate.startOf('week') &&
-        d <= activeDate.endOf('week')
+        d >= today.startOf('week') &&
+        d <= today.endOf('week')
       );
     });
-  }, [appointments, viewMode, activeDate]);
+  }, [appointments]);
 
   if (loading) {
     return (
@@ -127,57 +113,37 @@ export default function DashboardPage() {
               {appointmentsSummary.total}
             </p>
           </div>
+
           <div>
             <p className="text-gray-500">Atendidas</p>
             <p className="text-lg font-semibold">
               {appointmentsSummary.attended}
             </p>
           </div>
+
           <div>
             <p className="text-gray-500">Pendientes</p>
             <p className="text-lg font-semibold">
               {appointmentsSummary.pending}
             </p>
           </div>
+
+          <div>
+            <p className="text-gray-500">Canceladas</p>
+            <p className="text-lg font-semibold">
+              {appointmentsSummary.canceled}
+            </p>
+          </div>
         </div>
       </div>
 
-      {/* SELECTOR */}
-      <div className="flex gap-2 mb-4">
-        {(['day', 'week', 'month'] as ViewMode[]).map(v => (
-          <button
-            key={v}
-            onClick={() => setViewMode(v)}
-            className={`px-4 py-2 text-sm rounded border ${
-              viewMode === v ? 'bg-black text-white' : 'bg-white'
-            }`}
-          >
-            {v === 'day' && 'Día'}
-            {v === 'week' && 'Semana'}
-            {v === 'month' && 'Mes'}
-          </button>
-        ))}
-      </div>
-
-      {/* CALENDARIO */}
+      {/* CALENDARIO SEMANAL */}
       <div className="mb-6 border rounded p-4">
         <WeekCalendar
           appointments={filteredAppointments}
-          viewMode={viewMode}
-          activeDate={activeDate}
-          onDaySelect={(d) => {
-            setActiveDate(d);
-            setViewMode('day');
+          onAppointmentClick={(appt) => {
+            router.push(`/appointments/${appt.id}`);
           }}
-        />
-      </div>
-
-      {/* DISPONIBILIDAD */}
-      <div className="mb-6 border rounded p-4">
-        <StaffAvailability
-          viewMode={viewMode}
-          activeDate={activeDate}
-          appointments={filteredAppointments}
         />
       </div>
     </DashboardLayout>

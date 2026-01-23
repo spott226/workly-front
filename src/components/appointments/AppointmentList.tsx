@@ -4,31 +4,22 @@ import { useEffect, useMemo, useState } from 'react';
 import { DateTime } from 'luxon';
 
 import { Appointment, getAppointments } from '@/lib/appointments';
-import { AppointmentCard } from './AppointmentCard';
 import WeekCalendar from '@/components/calendar/WeekCalendar';
 
 type Period = 'day' | 'week' | 'month' | 'year';
 
-const MONTHS = [
-  'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
-  'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
-];
-
-const PAGE_SIZE = 10;
-
 export function AppointmentList() {
+  const zone = 'America/Mexico_City';
+
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const [period, setPeriod] = useState<Period>('day');
+  const [period, setPeriod] = useState<Period>('week');
   const [activeDate, setActiveDate] = useState(
-    DateTime.now().setZone('America/Mexico_City')
+    DateTime.now().setZone(zone)
   );
 
-  const currentYear = activeDate.year;
-  const [year, setYear] = useState(currentYear);
-  const [month, setMonth] = useState<number | null>(null);
-  const [page, setPage] = useState(1);
+  const [selected, setSelected] = useState<Appointment | null>(null);
 
   async function loadAppointments() {
     setLoading(true);
@@ -41,22 +32,22 @@ export function AppointmentList() {
     loadAppointments();
   }, []);
 
+  // limpiar selección al cambiar vista
+  useEffect(() => {
+    setSelected(null);
+  }, [period, activeDate]);
+
   /* =========================
-     FILTER APPOINTMENTS
+     FILTRADO (MISMA LÓGICA)
   ========================= */
   const filtered = useMemo(() => {
     return appointments.filter(a => {
       const d = DateTime
         .fromISO(a.starts_at, { zone: 'utc' })
-        .setZone('America/Mexico_City');
+        .setZone(zone);
 
-      if (period === 'year') {
-        return d.year === year;
-      }
-
-      if (period === 'month') {
-        const m = month ?? activeDate.month - 1;
-        return d.year === year && d.month - 1 === m;
+      if (period === 'day') {
+        return d.hasSame(activeDate, 'day');
       }
 
       if (period === 'week') {
@@ -66,38 +57,26 @@ export function AppointmentList() {
         );
       }
 
-      return d.hasSame(activeDate, 'day');
+      if (period === 'month') {
+        return (
+          d.year === activeDate.year &&
+          d.month === activeDate.month
+        );
+      }
+
+      // year
+      return d.year === activeDate.year;
     });
-  }, [appointments, period, year, month, activeDate]);
+  }, [appointments, period, activeDate]);
 
-  /* =========================
-     PAGINATION
-  ========================= */
-  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+  const formatDateRange = (a: Appointment) => {
+    const start = DateTime.fromISO(a.starts_at, { zone: 'utc' }).setZone(zone);
+    const end = DateTime.fromISO(a.ends_at, { zone: 'utc' }).setZone(zone);
 
-  const statusPriority: Record<string, number> = {
-    PENDING: 1,
-    CONFIRMED: 2,
-    ATTENDED: 3,
-    NO_SHOW: 3,
+    return `${start.toFormat('dd LLL yyyy')} · ${start.toFormat(
+      'hh:mm a'
+    )} — ${end.toFormat('hh:mm a')}`;
   };
-
-  const paginated = filtered
-    .sort((a, b) => {
-      const pA = statusPriority[a.status] ?? 99;
-      const pB = statusPriority[b.status] ?? 99;
-      if (pA !== pB) return pA - pB;
-
-      return (
-        DateTime.fromISO(a.starts_at).toMillis() -
-        DateTime.fromISO(b.starts_at).toMillis()
-      );
-    })
-    .slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-
-  useEffect(() => {
-    setPage(1);
-  }, [period, year, month, activeDate]);
 
   if (loading) {
     return <p className="text-sm text-gray-500">Cargando citas…</p>;
@@ -110,114 +89,74 @@ export function AppointmentList() {
   return (
     <div className="space-y-6">
       {/* CONTROLES */}
-      <div className="flex flex-col sm:flex-row sm:flex-wrap gap-3 sm:items-center border-b pb-4">
-        <div className="flex flex-wrap gap-2">
-          {(['day', 'week', 'month', 'year'] as Period[]).map(p => (
-            <button
-              key={p}
-              onClick={() => {
-                setPeriod(p);
-                if (p === 'day') {
-                  setActiveDate(
-                    DateTime.now().setZone('America/Mexico_City')
-                  );
-                }
-                if (p !== 'month') setMonth(null);
-              }}
-              className={`px-4 py-2 text-sm rounded-md border ${
-                period === p ? 'bg-black text-white' : 'bg-white'
-              }`}
-            >
-              {p === 'day' && 'Día'}
-              {p === 'week' && 'Semana'}
-              {p === 'month' && 'Mes'}
-              {p === 'year' && 'Año'}
-            </button>
-          ))}
-        </div>
-
-        <div className="flex gap-2 flex-wrap">
-          <select
-            value={year}
-            onChange={(e) => setYear(Number(e.target.value))}
-            className="border rounded-md px-3 py-2 text-sm"
-          >
-            {[currentYear - 2, currentYear - 1, currentYear, currentYear + 1].map(y => (
-              <option key={y} value={y}>{y}</option>
-            ))}
-          </select>
-
-          {period === 'month' && (
-            <select
-              value={month ?? ''}
-              onChange={(e) => setMonth(Number(e.target.value))}
-              className="border rounded-md px-3 py-2 text-sm"
-            >
-              <option value="">Mes</option>
-              {MONTHS.map((m, i) => (
-                <option key={m} value={i}>{m}</option>
-              ))}
-            </select>
-          )}
-        </div>
-      </div>
-
-      {/* CALENDARIO */}
-      {(period === 'day' || period === 'week') && (
-        <div className="mb-8">
-          <WeekCalendar
-            appointments={filtered}
-            viewMode={period}
-            activeDate={activeDate}
-            onDaySelect={(d) => {
-              setActiveDate(d);
-              setPeriod('day');
+      <div className="flex flex-wrap gap-2 border-b pb-4">
+        {(['day', 'week', 'month', 'year'] as Period[]).map(p => (
+          <button
+            key={p}
+            onClick={() => {
+              setPeriod(p);
+              setActiveDate(DateTime.now().setZone(zone));
             }}
-          />
-        </div>
-      )}
-
-      {/* LISTADO */}
-      <div className="space-y-4">
-        {paginated.length === 0 && (
-          <p className="text-sm text-gray-500">
-            No hay citas en este rango.
-          </p>
-        )}
-
-        {paginated.map(a => (
-          <AppointmentCard
-            key={a.id}
-            appointment={a}
-            onChange={loadAppointments}
-          />
+            className={`px-4 py-2 text-sm rounded-md border ${
+              period === p ? 'bg-black text-white' : 'bg-white'
+            }`}
+          >
+            {p === 'day' && 'Día'}
+            {p === 'week' && 'Semana'}
+            {p === 'month' && 'Mes'}
+            {p === 'year' && 'Año'}
+          </button>
         ))}
       </div>
 
-      {/* PAGINACIÓN */}
-      {totalPages > 1 && (
-        <div className="flex flex-col sm:flex-row justify-center items-center gap-3 pt-4">
-          <button
-            disabled={page === 1}
-            onClick={() => setPage(p => p - 1)}
-            className="px-4 py-2 text-sm border rounded-md disabled:opacity-40"
-          >
-            Anterior
-          </button>
+      {/* CALENDARIO (UNA SOLA BASE) */}
+      <div className="border rounded p-4">
+        <WeekCalendar
+          appointments={filtered}
+          onAppointmentClick={(a) => setSelected(a)}
+        />
+      </div>
 
-          <span className="text-sm text-gray-600">
-            Página {page} de {totalPages}
-          </span>
+      {/* PANEL DE DETALLE */}
+      <div className="border rounded p-4">
+        {!selected ? (
+          <p className="text-sm text-gray-500">
+            Selecciona una cita en el calendario para ver el detalle.
+          </p>
+        ) : (
+          <div className="space-y-2">
+            <div className="flex justify-between items-start gap-4">
+              <div>
+                <h3 className="text-lg font-semibold">
+                  {selected.client_name}
+                </h3>
+                <p className="text-sm text-gray-600">
+                  {selected.service_name} · {selected.employee_name}
+                </p>
+              </div>
 
-          <button
-            disabled={page === totalPages}
-            onClick={() => setPage(p => p + 1)}
-            className="px-4 py-2 text-sm border rounded-md disabled:opacity-40"
-          >
-            Siguiente
-          </button>
-        </div>
-      )}
+              <button
+                onClick={() => setSelected(null)}
+                className="px-3 py-1 text-sm border rounded"
+              >
+                Cerrar
+              </button>
+            </div>
+
+            <p className="text-sm">
+              <b>Teléfono:</b> {selected.phone || '—'}
+            </p>
+
+            <p className="text-sm">
+              <b>Fecha / hora:</b> {formatDateRange(selected)}
+            </p>
+
+            <p className="text-sm">
+              <b>Estado:</b> {selected.status}
+            </p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

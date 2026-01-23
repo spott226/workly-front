@@ -6,101 +6,99 @@ import { APPOINTMENT_COLORS } from './appointmentColors';
 
 type Props = {
   appointments: Appointment[];
-  viewMode: 'day' | 'week' | 'month';
-  activeDate: DateTime;
-  onDaySelect: (d: DateTime) => void;
+  onAppointmentClick?: (appointment: Appointment) => void;
 };
 
-const START_HOUR = 8;
-const END_HOUR = 20;
-const HOUR_HEIGHT = 60;
+const HOURS = Array.from({ length: 24 }, (_, i) => i);
 
 export default function WeekCalendar({
   appointments,
-  viewMode,
-  activeDate,
-  onDaySelect,
+  onAppointmentClick,
 }: Props) {
-  const days =
-    viewMode === 'day'
-      ? [activeDate]
-      : Array.from({ length: 7 }).map((_, i) =>
-          activeDate.startOf('week').plus({ days: i })
-        );
+  const zone = 'America/Mexico_City';
 
-  const hours = Array.from(
-    { length: END_HOUR - START_HOUR },
-    (_, i) => START_HOUR + i
+  const startOfWeek = DateTime.now()
+    .setZone(zone)
+    .startOf('week');
+
+  const days = Array.from({ length: 7 }, (_, i) =>
+    startOfWeek.plus({ days: i })
   );
 
+  const toMX = (iso: string) =>
+    DateTime.fromISO(iso, { zone: 'utc' }).setZone(zone);
+
   return (
-    <div className="border rounded overflow-hidden">
-      <div className="grid grid-cols-[60px_repeat(7,1fr)] bg-gray-50">
-        <div />
-        {days.map(d => (
-          <button
-            key={d.toISODate()}
-            onClick={() => onDaySelect(d)}
-            className="text-sm p-2 font-medium hover:bg-gray-200"
+    <div className="border rounded overflow-x-auto">
+      <div className="grid grid-cols-8 border-b bg-gray-50 text-sm">
+        <div className="p-2 border-r"></div>
+        {days.map(day => (
+          <div
+            key={day.toISODate()}
+            className="p-2 text-center border-r font-medium"
           >
-            {d.toFormat('ccc dd')}
-          </button>
+            {day.toFormat('ccc dd')}
+          </div>
         ))}
       </div>
 
-      <div className="relative grid grid-cols-[60px_repeat(7,1fr)]">
-        <div>
-          {hours.map(h => (
-            <div
-              key={h}
-              style={{ height: HOUR_HEIGHT }}
-              className="text-xs px-1 border-b"
-            >
-              {`${h}:00`}
+      <div className="grid grid-cols-8 text-sm">
+        {HOURS.map(hour => (
+          <div key={hour} className="contents">
+            <div className="border-r border-b p-2 text-right text-gray-500">
+              {String(hour).padStart(2, '0')}:00
             </div>
-          ))}
-        </div>
 
-        {days.map(day => (
-          <div key={day.toISODate()} className="relative border-l">
-            {hours.map(h => (
-              <div
-                key={h}
-                style={{ height: HOUR_HEIGHT }}
-                className="border-b"
-              />
-            ))}
+            {days.map(day => {
+              const slotStart = day.set({
+                hour,
+                minute: 0,
+                second: 0,
+                millisecond: 0,
+              });
+              const slotEnd = slotStart.plus({ hours: 1 });
 
-            {appointments
-              .filter(a =>
-                DateTime
-                  .fromISO(a.starts_at, { zone: 'utc' })
-                  .setZone('America/Mexico_City')
-                  .hasSame(day, 'day')
-              )
-              .map(a => {
-                const start = DateTime.fromISO(a.starts_at, { zone: 'utc' })
-                  .setZone('America/Mexico_City');
-                const end = DateTime.fromISO(a.ends_at, { zone: 'utc' })
-                  .setZone('America/Mexico_City');
-
-                const top =
-                  (start.hour + start.minute / 60 - START_HOUR) *
-                  HOUR_HEIGHT;
-                const height =
-                  end.diff(start, 'minutes').minutes *
-                  (HOUR_HEIGHT / 60);
+              const slotAppointments = appointments.filter(appt => {
+                const start = toMX(appt.starts_at);
+                const end = toMX(appt.ends_at);
 
                 return (
-                  <div
-                    key={a.id}
-                    style={{ top, height }}
-                    className={`absolute left-1 right-1 rounded text-xs text-white p-1 ${APPOINTMENT_COLORS[a.status]}`}
-                  >
-                    {a.client_name}
-                  </div>
+                  start < slotEnd &&
+                  end > slotStart &&
+                  start.hasSame(day, 'day')
                 );
-              })}
+              });
+
+              return (
+                <div
+                  key={`${day.toFormat('yyyy-LL-dd')}-${hour}`}
+                  className="border-r border-b h-16 relative"
+                >
+                  {slotAppointments.map(appt => {
+                    const color =
+                      APPOINTMENT_COLORS[appt.status] ??
+                      'bg-gray-400';
+
+                    return (
+                      <div
+                        key={appt.id}
+                        onClick={() =>
+                          onAppointmentClick?.(appt)
+                        }
+                        className={`absolute inset-1 rounded px-2 py-1 text-xs text-white cursor-pointer ${color}`}
+                      >
+                        <p className="font-medium truncate">
+                          {appt.client_name}
+                        </p>
+                        <p className="truncate">
+                          {appt.service_name}
+                        </p>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })}
           </div>
         ))}
       </div>
