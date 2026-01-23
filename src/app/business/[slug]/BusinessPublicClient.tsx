@@ -1,11 +1,11 @@
 'use client';
 
 import { useRef, useState } from 'react';
+import { DateTime } from 'luxon';
 import Link from 'next/link';
 
 import { BusinessHeader } from '@/components/business/BusinessHeader';
 import { ServiceSelector } from '@/components/booking/ServiceSelector';
-import { EmployeeSelector } from '@/components/booking/EmployeeSelector';
 import { EmployeeAvailability } from '@/components/employees/EmployeeAvailability';
 import { ClientForm } from '@/components/booking/ClientForm';
 import { BookingConfirmation } from '@/components/booking/BookingConfirmation';
@@ -14,14 +14,11 @@ import { apiFetch } from '@/lib/apiFetch';
 import { BUSINESS_THEMES } from '@/styles/businessThemes';
 import { FONT_PRESETS } from '@/styles/fontPresets';
 
-/* =========================
-   TYPES
-========================= */
-
 type Props = { slug: string };
 
 type Draft = {
   serviceId: string | null;
+  date: DateTime | null;
   employeeId: string | null;
   startISO: string | null;
   clientName: string;
@@ -36,15 +33,13 @@ type PublicBusiness = {
   font_variant: string;
 };
 
-/* =========================
-   COMPONENT
-========================= */
-
 export default function BusinessPublicClient({ slug }: Props) {
   const bookingRef = useRef<HTMLDivElement>(null);
+  const zone = 'America/Mexico_City';
 
   const [draft, setDraft] = useState<Draft>({
     serviceId: null,
+    date: null,
     employeeId: null,
     startISO: null,
     clientName: '',
@@ -59,6 +54,7 @@ export default function BusinessPublicClient({ slug }: Props) {
   async function handleSubmit() {
     if (
       !draft.serviceId ||
+      !draft.date ||
       !draft.employeeId ||
       !draft.startISO ||
       !draft.clientName.trim() ||
@@ -113,14 +109,11 @@ export default function BusinessPublicClient({ slug }: Props) {
 
   return (
     <main className={`${theme.page} ${fontClass} min-h-screen`}>
-      {/* ================= HERO ================= */}
       <section className={`${theme.hero} px-6 py-20 text-center`}>
         <div className="sr-only">
           <BusinessHeader
             slug={slug}
-            onBusinessLoaded={(biz: any) => {
-              setBusiness(biz);
-            }}
+            onBusinessLoaded={(biz: any) => setBusiness(biz)}
           />
         </div>
 
@@ -148,7 +141,6 @@ export default function BusinessPublicClient({ slug }: Props) {
         )}
       </section>
 
-      {/* ================= BOOKING ================= */}
       <section
         ref={bookingRef}
         className="max-w-xl mx-auto px-4 py-10 space-y-6"
@@ -160,6 +152,7 @@ export default function BusinessPublicClient({ slug }: Props) {
             onSelect={(serviceId) =>
               setDraft({
                 serviceId,
+                date: null,
                 employeeId: null,
                 startISO: null,
                 clientName: '',
@@ -169,28 +162,54 @@ export default function BusinessPublicClient({ slug }: Props) {
           />
         </div>
 
-        <div className={theme.card}>
-          <EmployeeSelector
-            serviceId={draft.serviceId}
-            publicMode
-            onSelect={(employeeId) =>
-              setDraft((d) => ({
-                ...d,
-                employeeId,
-                startISO: null,
-              }))
-            }
-          />
-        </div>
+        {draft.serviceId && (
+          <div className={theme.card}>
+            <h3 className="font-semibold mb-2">Selecciona el día</h3>
+            <div className="flex gap-2">
+              <button
+                onClick={() =>
+                  setDraft(d => ({
+                    ...d,
+                    date: DateTime.now().setZone(zone),
+                    employeeId: null,
+                    startISO: null,
+                  }))
+                }
+                className="px-3 py-2 border rounded"
+              >
+                Hoy
+              </button>
+              <button
+                onClick={() =>
+                  setDraft(d => ({
+                    ...d,
+                    date: DateTime.now()
+                      .setZone(zone)
+                      .plus({ days: 1 }),
+                    employeeId: null,
+                    startISO: null,
+                  }))
+                }
+                className="px-3 py-2 border rounded"
+              >
+                Mañana
+              </button>
+            </div>
+          </div>
+        )}
 
-        {draft.serviceId && draft.employeeId && (
+        {draft.serviceId && draft.date && (
           <div className={theme.card}>
             <EmployeeAvailability
               serviceId={draft.serviceId}
-              employeeId={draft.employeeId}
+              date={draft.date}
               publicMode
-              onSelect={(startISO) =>
-                setDraft((d) => ({ ...d, startISO }))
+              onSelect={(employeeId, startISO) =>
+                setDraft(d => ({
+                  ...d,
+                  employeeId,
+                  startISO,
+                }))
               }
             />
           </div>
@@ -202,7 +221,7 @@ export default function BusinessPublicClient({ slug }: Props) {
               clientName={draft.clientName}
               phone={draft.phone}
               onChange={(data) =>
-                setDraft((d) => ({ ...d, ...data }))
+                setDraft(d => ({ ...d, ...data }))
               }
             />
           </div>

@@ -1,17 +1,18 @@
 'use client';
 
 import { useState } from 'react';
+import { DateTime } from 'luxon';
 import { useRouter } from 'next/navigation';
 
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { ServiceSelector } from '@/components/booking/ServiceSelector';
-import { EmployeeSelector } from '@/components/booking/EmployeeSelector';
 import { EmployeeAvailability } from '@/components/employees/EmployeeAvailability';
 import { ClientForm } from '@/components/booking/ClientForm';
 import { apiFetch } from '@/lib/apiFetch';
 
 type AppointmentDraft = {
   serviceId: string | null;
+  date: DateTime | null;
   employeeId: string | null;
   startISO: string | null;
   clientName: string;
@@ -20,9 +21,11 @@ type AppointmentDraft = {
 
 export default function NewAppointmentPage() {
   const router = useRouter();
+  const zone = 'America/Mexico_City';
 
   const [draft, setDraft] = useState<AppointmentDraft>({
     serviceId: null,
+    date: null,
     employeeId: null,
     startISO: null,
     clientName: '',
@@ -35,6 +38,7 @@ export default function NewAppointmentPage() {
   function canSubmit() {
     return (
       !!draft.serviceId &&
+      !!draft.date &&
       !!draft.employeeId &&
       !!draft.startISO &&
       !!draft.clientName.trim() &&
@@ -78,6 +82,7 @@ export default function NewAppointmentPage() {
           onSelect={(serviceId) =>
             setDraft({
               serviceId,
+              date: null,
               employeeId: null,
               startISO: null,
               clientName: '',
@@ -86,25 +91,56 @@ export default function NewAppointmentPage() {
           }
         />
 
-        {/* 2️⃣ EMPLEADA */}
-        <EmployeeSelector
-          serviceId={draft.serviceId}
-          onSelect={(employeeId) =>
-            setDraft((d) => ({
-              ...d,
-              employeeId,
-              startISO: null,
-            }))
-          }
-        />
+        {/* 2️⃣ DÍA */}
+        {draft.serviceId && (
+          <div className="space-y-2">
+            <h3 className="font-semibold">Selecciona el día</h3>
 
-        {/* 3️⃣ HORARIOS (SLOTS REALES) */}
-        {draft.serviceId && draft.employeeId && (
+            <div className="flex gap-2">
+              <button
+                onClick={() =>
+                  setDraft(d => ({
+                    ...d,
+                    date: DateTime.now().setZone(zone),
+                    employeeId: null,
+                    startISO: null,
+                  }))
+                }
+                className="px-3 py-2 border rounded"
+              >
+                Hoy
+              </button>
+
+              <button
+                onClick={() =>
+                  setDraft(d => ({
+                    ...d,
+                    date: DateTime.now()
+                      .setZone(zone)
+                      .plus({ days: 1 }),
+                    employeeId: null,
+                    startISO: null,
+                  }))
+                }
+                className="px-3 py-2 border rounded"
+              >
+                Mañana
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* 3️⃣ EMPLEADAS + HORARIOS */}
+        {draft.serviceId && draft.date && (
           <EmployeeAvailability
             serviceId={draft.serviceId}
-            employeeId={draft.employeeId}
-            onSelect={(startISO) =>
-              setDraft((d) => ({ ...d, startISO }))
+            date={draft.date}
+            onSelect={(employeeId, startISO) =>
+              setDraft(d => ({
+                ...d,
+                employeeId,
+                startISO,
+              }))
             }
           />
         )}
@@ -115,7 +151,7 @@ export default function NewAppointmentPage() {
             clientName={draft.clientName}
             phone={draft.phone}
             onChange={(data) =>
-              setDraft((d) => ({ ...d, ...data }))
+              setDraft(d => ({ ...d, ...data }))
             }
           />
         )}
@@ -131,7 +167,7 @@ export default function NewAppointmentPage() {
           onClick={handleSubmit}
           className="bg-black text-white px-4 py-2 rounded disabled:bg-gray-300"
         >
-          {loading ? 'Creando…' : 'Crear cita'}
+          {loading ? 'Creando…' : 'Confirmar cita'}
         </button>
       </div>
     </DashboardLayout>

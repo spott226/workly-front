@@ -1,161 +1,172 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useState } from 'react';
 import { DateTime } from 'luxon';
+import { useRouter } from 'next/navigation';
 
-import { Appointment, getAppointments } from '@/lib/appointments';
-import WeekCalendar from '@/components/calendar/WeekCalendar';
+import { DashboardLayout } from '@/components/layout/DashboardLayout';
+import { ServiceSelector } from '@/components/booking/ServiceSelector';
+import { EmployeeSelector } from '@/components/booking/EmployeeSelector';
+import { EmployeeAvailability } from '@/components/employees/EmployeeAvailability';
+import { ClientForm } from '@/components/booking/ClientForm';
+import { apiFetch } from '@/lib/apiFetch';
 
-type Period = 'day' | 'week' | 'month' | 'year';
+/* =========================
+   TYPES
+========================= */
+type Draft = {
+  date: DateTime | null;
+  serviceId: string | null;
+  employeeId: string | null;
+  startISO: string | null;
+  clientName: string;
+  phone: string;
+};
 
-export function AppointmentList() {
+export default function NewAppointmentPage() {
+  const router = useRouter();
   const zone = 'America/Mexico_City';
 
-  const [appointments, setAppointments] = useState<Appointment[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [draft, setDraft] = useState<Draft>({
+    date: DateTime.now().setZone(zone),
+    serviceId: null,
+    employeeId: null,
+    startISO: null,
+    clientName: '',
+    phone: '',
+  });
 
-  const [period, setPeriod] = useState<Period>('week');
-  const [activeDate, setActiveDate] = useState(
-    DateTime.now().setZone(zone)
-  );
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const [selected, setSelected] = useState<Appointment | null>(null);
+  function canSubmit() {
+    return (
+      !!draft.date &&
+      !!draft.serviceId &&
+      !!draft.employeeId &&
+      !!draft.startISO &&
+      !!draft.clientName.trim() &&
+      !!draft.phone.trim()
+    );
+  }
 
-  async function loadAppointments() {
+  async function handleSubmit() {
+    if (!canSubmit()) return;
+
     setLoading(true);
-    const data = await getAppointments();
-    setAppointments(data.filter(a => a.status !== 'CANCELLED'));
-    setLoading(false);
-  }
+    setError(null);
 
-  useEffect(() => {
-    loadAppointments();
-  }, []);
+    try {
+      await apiFetch('/appointments', {
+        method: 'POST',
+        body: JSON.stringify({
+          serviceId: draft.serviceId,
+          employeeId: draft.employeeId,
+          startISO: draft.startISO,
+          clientName: draft.clientName,
+          phone: draft.phone,
+        }),
+      });
 
-  useEffect(() => {
-    setSelected(null);
-  }, [period, activeDate]);
-
-  /* =========================
-     FILTRADO (MISMA LÓGICA)
-  ========================= */
-  const filtered = useMemo(() => {
-    return appointments.filter(a => {
-      const d = DateTime
-        .fromISO(a.starts_at, { zone: 'utc' })
-        .setZone(zone);
-
-      if (period === 'day') {
-        return d.hasSame(activeDate, 'day');
-      }
-
-      if (period === 'week') {
-        return (
-          d >= activeDate.startOf('week') &&
-          d <= activeDate.endOf('week')
-        );
-      }
-
-      if (period === 'month') {
-        return (
-          d.year === activeDate.year &&
-          d.month === activeDate.month
-        );
-      }
-
-      return d.year === activeDate.year;
-    });
-  }, [appointments, period, activeDate]);
-
-  const formatDateRange = (a: Appointment) => {
-    const start = DateTime.fromISO(a.starts_at, { zone: 'utc' }).setZone(zone);
-    const end = DateTime.fromISO(a.ends_at, { zone: 'utc' }).setZone(zone);
-
-    return `${start.toFormat('dd LLL yyyy')} · ${start.toFormat(
-      'hh:mm a'
-    )} — ${end.toFormat('hh:mm a')}`;
-  };
-
-  if (loading) {
-    return <p className="text-sm text-gray-500">Cargando citas…</p>;
-  }
-
-  if (!appointments.length) {
-    return <p className="text-sm text-gray-500">No hay citas.</p>;
+      router.push('/appointments');
+    } catch (e) {
+      setError(
+        e instanceof Error ? e.message : 'Error al crear la cita'
+      );
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
-    <div className="space-y-6">
-      {/* CONTROLES */}
-      <div className="flex flex-wrap gap-2 border-b pb-4">
-        {(['day', 'week', 'month', 'year'] as Period[]).map(p => (
-          <button
-            key={p}
-            onClick={() => {
-              setPeriod(p);
-              setActiveDate(DateTime.now().setZone(zone));
-            }}
-            className={`px-4 py-2 text-sm rounded-md border ${
-              period === p ? 'bg-black text-white' : 'bg-white'
-            }`}
-          >
-            {p === 'day' && 'Día'}
-            {p === 'week' && 'Semana'}
-            {p === 'month' && 'Mes'}
-            {p === 'year' && 'Año'}
-          </button>
-        ))}
-      </div>
+    <DashboardLayout>
+      <h1 className="text-xl font-bold mb-4">Nueva cita</h1>
 
-      {/* CALENDARIO */}
-      <div className="border rounded p-4">
-        <WeekCalendar
-          appointments={filtered}
-          startDate={activeDate}
-          onAppointmentClick={(a) => setSelected(a)}
-        />
-      </div>
+      <div className="max-w-xl space-y-6">
+        {/* 0️⃣ FECHA */}
+        <div className="border rounded p-4 space-y-2">
+          <h3 className="font-semibold text-sm">Selecciona fecha</h3>
+          <div className="flex gap-2">
+            {[0, 1, 2].map(d => {
+              const day = DateTime.now()
+                .setZone(zone)
+                .plus({ days: d });
 
-      {/* PANEL DE DETALLE */}
-      <div className="border rounded p-4">
-        {!selected ? (
-          <p className="text-sm text-gray-500">
-            Selecciona una cita en el calendario para ver el detalle.
-          </p>
-        ) : (
-          <div className="space-y-2">
-            <div className="flex justify-between items-start gap-4">
-              <div>
-                <h3 className="text-lg font-semibold">
-                  {selected.client_name}
-                </h3>
-                <p className="text-sm text-gray-600">
-                  {selected.service_name} · {selected.employee_name}
-                </p>
-              </div>
-
-              <button
-                onClick={() => setSelected(null)}
-                className="px-3 py-1 text-sm border rounded"
-              >
-                Cerrar
-              </button>
-            </div>
-
-            <p className="text-sm">
-              <b>Teléfono:</b> {selected.phone || '—'}
-            </p>
-
-            <p className="text-sm">
-              <b>Fecha / hora:</b> {formatDateRange(selected)}
-            </p>
-
-            <p className="text-sm">
-              <b>Estado:</b> {selected.status}
-            </p>
+              return (
+                <button
+                  key={d}
+                  onClick={() =>
+                    setDraft(prev => ({
+                      ...prev,
+                      date: day,
+                      employeeId: null,
+                      startISO: null,
+                    }))
+                  }
+                  className={`px-3 py-2 rounded border ${
+                    draft.date?.hasSame(day, 'day')
+                      ? 'bg-black text-white'
+                      : ''
+                  }`}
+                >
+                  {day.toFormat('ccc dd')}
+                </button>
+              );
+            })}
           </div>
+        </div>
+
+        {/* 1️⃣ SERVICIO */}
+        <ServiceSelector
+          onSelect={(serviceId) =>
+            setDraft(prev => ({
+              ...prev,
+              serviceId,
+              employeeId: null,
+              startISO: null,
+            }))
+          }
+        />
+
+        {/* 2️⃣ EMPLEADA (POR SERVICIO + FECHA) */}
+        {draft.serviceId && draft.date && (
+          <EmployeeSelector
+            serviceId={draft.serviceId}
+            onSelect={(employeeId) =>
+              setDraft(prev => ({
+                ...prev,
+                employeeId,
+                startISO: null,
+              }))
+            }
+          />
         )}
+
+        {/* 4️⃣ CLIENTE */}
+        {draft.startISO && (
+          <ClientForm
+            clientName={draft.clientName}
+            phone={draft.phone}
+            onChange={(data) =>
+              setDraft(prev => ({ ...prev, ...data }))
+            }
+          />
+        )}
+
+        {error && (
+          <p className="text-sm text-red-600 font-medium">
+            {error}
+          </p>
+        )}
+
+        <button
+          disabled={!canSubmit() || loading}
+          onClick={handleSubmit}
+          className="bg-black text-white px-4 py-2 rounded disabled:bg-gray-300"
+        >
+          {loading ? 'Creando…' : 'Confirmar cita'}
+        </button>
       </div>
-    </div>
+    </DashboardLayout>
   );
 }

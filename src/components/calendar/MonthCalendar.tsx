@@ -39,7 +39,6 @@ export default function MonthCalendar({
 
   return (
     <div className="border rounded overflow-hidden">
-      {/* HEADER */}
       <div className="grid grid-cols-7 bg-gray-50 border-b text-sm font-medium">
         {['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'].map(d => (
           <div key={d} className="p-2 text-center">
@@ -48,7 +47,6 @@ export default function MonthCalendar({
         ))}
       </div>
 
-      {/* GRID */}
       <div className="grid grid-cols-7">
         {days.map(day => {
           const isCurrentMonth = day.month === date.month;
