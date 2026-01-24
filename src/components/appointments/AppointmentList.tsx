@@ -6,11 +6,17 @@ import { DateTime } from 'luxon';
 import { Appointment, getAppointments } from '@/lib/appointments';
 import { CalendarView } from '@/components/calendar/CalendarView';
 import { AppointmentCard } from './AppointmentCard';
+import { apiFetch } from '@/lib/apiFetch';
 
 /* =========================
    TIPOS
 ========================= */
 type Period = 'day' | 'week' | 'month' | 'year';
+
+type Business = {
+  opening_time: string | null;
+  closing_time: string | null;
+};
 
 /* =========================
    CONSTANTES
@@ -27,35 +33,41 @@ const ZONE = 'America/Mexico_City';
 ========================= */
 export function AppointmentList() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [business, setBusiness] = useState<Business | null>(null);
   const [loading, setLoading] = useState(true);
 
   const [period, setPeriod] = useState<Period>('day');
+  const [date, setDate] = useState(DateTime.now().setZone(ZONE));
   const [selectedAppointment, setSelectedAppointment] =
     useState<Appointment | null>(null);
 
-  const currentYear = DateTime.now().setZone(ZONE).year;
+  const currentYear = date.year;
   const [year, setYear] = useState(currentYear);
   const [month, setMonth] = useState<number | null>(null);
 
   /* =========================
      CARGA
   ========================= */
-  async function loadAppointments() {
+  async function load() {
     setLoading(true);
-    const data = await getAppointments();
-    setAppointments(data.filter(a => a.status !== 'CANCELLED'));
+
+    const [apps, biz] = await Promise.all([
+      getAppointments(),
+      apiFetch<Business>('/businesses/me'),
+    ]);
+
+    setAppointments(apps.filter(a => a.status !== 'CANCELLED'));
+    setBusiness(biz);
     setLoading(false);
   }
 
   useEffect(() => {
-    loadAppointments();
+    load();
   }, []);
 
   /* =========================
      FILTRO
   ========================= */
-  const todayMX = DateTime.now().setZone(ZONE);
-
   const filtered = useMemo(() => {
     return appointments.filter(a => {
       const d = DateTime
@@ -65,17 +77,27 @@ export function AppointmentList() {
       if (period === 'year') return d.year === year;
 
       if (period === 'month') {
-        const m = month ?? todayMX.month - 1;
+        const m = month ?? date.month - 1;
         return d.year === year && d.month - 1 === m;
       }
 
       if (period === 'week') {
-        return d >= todayMX.startOf('week') && d <= todayMX.endOf('week');
+        return d >= date.startOf('week') && d <= date.endOf('week');
       }
 
-      return d.hasSame(todayMX, 'day');
+      return d.hasSame(date, 'day');
     });
-  }, [appointments, period, year, month, todayMX]);
+  }, [appointments, period, year, month, date]);
+
+  /* =========================
+     NAVEGACIÓN DE FECHA
+  ========================= */
+  function moveDate(step: number) {
+    if (period === 'day') setDate(d => d.plus({ days: step }));
+    if (period === 'week') setDate(d => d.plus({ weeks: step }));
+    if (period === 'month') setDate(d => d.plus({ months: step }));
+    if (period === 'year') setDate(d => d.plus({ years: step }));
+  }
 
   /* =========================
      STATES
@@ -108,7 +130,7 @@ export function AppointmentList() {
                 period === p ? 'bg-black text-white' : 'bg-white'
               }`}
             >
-              {p === 'day' && 'Hoy'}
+              {p === 'day' && 'Día'}
               {p === 'week' && 'Semana'}
               {p === 'month' && 'Mes'}
               {p === 'year' && 'Año'}
@@ -116,14 +138,14 @@ export function AppointmentList() {
           ))}
         </div>
 
-        {/* SELECTORES */}
+        {/* SELECTORES + FECHA */}
         <div className="flex flex-wrap gap-2 items-center">
           <select
             value={year}
             onChange={e => setYear(Number(e.target.value))}
             className="border rounded-md px-3 py-2 text-sm"
           >
-            {[currentYear - 2, currentYear - 1, currentYear, currentYear + 1].map(y => (
+            {[year - 2, year - 1, year, year + 1].map(y => (
               <option key={y} value={y}>{y}</option>
             ))}
           </select>
@@ -140,6 +162,14 @@ export function AppointmentList() {
               ))}
             </select>
           )}
+
+          <div className="ml-auto flex items-center gap-3">
+            <button onClick={() => moveDate(-1)}>←</button>
+            <span className="font-medium">
+              {date.toFormat('dd LLL yyyy')}
+            </span>
+            <button onClick={() => moveDate(1)}>→</button>
+          </div>
         </div>
       </div>
 
@@ -153,6 +183,7 @@ export function AppointmentList() {
             ? 'week'
             : 'month'
         }
+        businessHours={business}
         onAppointmentClick={setSelectedAppointment}
       />
 
@@ -169,7 +200,7 @@ export function AppointmentList() {
 
             <AppointmentCard
               appointment={selectedAppointment}
-              onChange={loadAppointments}
+              onChange={load}
             />
           </div>
         </div>

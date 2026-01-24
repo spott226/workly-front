@@ -2,30 +2,35 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { DateTime } from 'luxon';
-import { useRouter } from 'next/navigation';
 
-import { DashboardLayout } from '@/components/layout/DashboardLayout';
-import { CalendarView } from '@/components/calendar/CalendarView';
-import { AppointmentCard } from '@/components/appointments/AppointmentCard';
-import { EmployeeAvailabilityList } from '@/components/availability/EmployeeAvailabilityList';
-
+import { apiFetch } from '@/lib/apiFetch';
 import { Appointment, getAppointments } from '@/lib/appointments';
 
-/* =========================
-   TIPOS
-========================= */
-type Period = 'day' | 'week' | 'month' | 'year';
+import { CalendarView } from '@/components/calendar/CalendarView';
+import { AppointmentCard } from '@/components/appointments/AppointmentCard';
+import { StaffAvailabilityBoard } from '@/components/calendar/StaffAvailabilityBoard';
 
 const ZONE = 'America/Mexico_City';
 
-/* =========================
-   PAGE
-========================= */
-export default function DashboardPage() {
-  const router = useRouter();
+type Period = 'day' | 'week' | 'month';
 
+type Employee = {
+  id: string;
+  name: string;
+};
+
+type Business = {
+  opening_time: string | null;
+  closing_time: string | null;
+};
+
+export default function DashboardPage() {
+  /* =========================
+     STATE
+  ========================= */
   const [appointments, setAppointments] = useState<Appointment[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [business, setBusiness] = useState<Business | null>(null);
 
   const [period, setPeriod] = useState<Period>('day');
   const [date, setDate] = useState(DateTime.now().setZone(ZONE));
@@ -33,22 +38,30 @@ export default function DashboardPage() {
   const [selectedAppointment, setSelectedAppointment] =
     useState<Appointment | null>(null);
 
+  const [selectedEmployee, setSelectedEmployee] =
+    useState<Employee | null>(null);
+
   /* =========================
      LOAD
   ========================= */
-  async function loadAppointments() {
-    setLoading(true);
-    const data = await getAppointments();
-    setAppointments(data.filter(a => a.status !== 'CANCELLED'));
-    setLoading(false);
+  async function load() {
+    const [a, e, b] = await Promise.all([
+      getAppointments(),
+      apiFetch<Employee[]>('/employees'),
+      apiFetch<Business>('/businesses/me'),
+    ]);
+
+    setAppointments(a.filter(x => x.status !== 'CANCELLED'));
+    setEmployees(e);
+    setBusiness(b);
   }
 
   useEffect(() => {
-    loadAppointments();
+    load();
   }, []);
 
   /* =========================
-     FILTRO POR PERIODO
+     FILTRO CITAS
   ========================= */
   const filteredAppointments = useMemo(() => {
     return appointments.filter(a => {
@@ -56,7 +69,6 @@ export default function DashboardPage() {
         .fromISO(a.starts_at, { zone: 'utc' })
         .setZone(ZONE);
 
-      if (period === 'year') return d.year === date.year;
       if (period === 'month') return d.hasSame(date, 'month');
       if (period === 'week')
         return d >= date.startOf('week') && d <= date.endOf('week');
@@ -66,7 +78,7 @@ export default function DashboardPage() {
   }, [appointments, period, date]);
 
   /* =========================
-     NAV DATE
+     NAV FECHA
   ========================= */
   function moveDate(step: number) {
     if (period === 'day') setDate(d => d.plus({ days: step }));
@@ -74,30 +86,15 @@ export default function DashboardPage() {
     if (period === 'month') setDate(d => d.plus({ months: step }));
   }
 
-  if (loading) {
-    return (
-      <DashboardLayout>
-        <p>Cargando agenda…</p>
-      </DashboardLayout>
-    );
-  }
+  if (!business) return null;
 
+  /* =========================
+     RENDER
+  ========================= */
   return (
-    <DashboardLayout>
-      {/* HEADER */}
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Agenda</h1>
-
-        <button
-          onClick={() => router.push('/appointments/new')}
-          className="px-5 py-2 rounded bg-black text-white"
-        >
-          + Crear cita
-        </button>
-      </div>
-
+    <div className="space-y-8">
       {/* CONTROLES */}
-      <div className="flex flex-wrap items-center gap-3 mb-4">
+      <div className="flex flex-wrap gap-2 items-center">
         {(['day', 'week', 'month'] as Period[]).map(p => (
           <button
             key={p}
@@ -124,17 +121,39 @@ export default function DashboardPage() {
       {/* CALENDARIO */}
       <CalendarView
         appointments={filteredAppointments}
-        view={
-          period === 'day'
-            ? 'day'
-            : period === 'week'
-            ? 'week'
-            : 'month'
-        }
+        view={period}
+        businessHours={business}
         onAppointmentClick={setSelectedAppointment}
       />
 
-      {/* MODAL CITA */}
+      {/* EMPLEADOS */}
+      <div className="space-y-3">
+        <h3 className="font-semibold">Disponibilidad por empleado</h3>
+
+        <div className="flex flex-wrap gap-2">
+          {employees.map(e => (
+            <button
+              key={e.id}
+              onClick={() => setSelectedEmployee(e)}
+              className={`px-3 py-1 border rounded ${
+                selectedEmployee?.id === e.id
+                  ? 'bg-black text-white'
+                  : ''
+              }`}
+            >
+              {e.name}
+            </button>
+          ))}
+        </div>
+
+        {selectedEmployee && (
+          <StaffAvailabilityBoard
+            appointments={appointments}
+          />
+        )}
+      </div>
+
+      {/* MODAL */}
       {selectedAppointment && (
         <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center">
           <div className="bg-white rounded-xl w-full max-w-lg p-4 relative">
@@ -147,16 +166,11 @@ export default function DashboardPage() {
 
             <AppointmentCard
               appointment={selectedAppointment}
-              onChange={loadAppointments}
+              onChange={load}
             />
           </div>
         </div>
       )}
-
-      {/* DISPONIBILIDAD POR EMPLEADO */}
-      <div className="mt-10">
-        <EmployeeAvailabilityList />
-      </div>
-    </DashboardLayout>
+    </div>
   );
 }
