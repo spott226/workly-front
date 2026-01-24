@@ -78,29 +78,32 @@ export function EmployeeAvailability({
      2️⃣ CARGAR HORARIOS
   ========================= */
   async function loadSlotsForEmployee(employeeId: string) {
-    setSelectedEmployeeId(employeeId);
-    setSelectedISO(null);
+  setSelectedEmployeeId(employeeId);
+  setSelectedISO(null);
+  setSlots([]);
+  setLoadingSlots(true);
+
+  try {
+    const url = publicMode
+      ? `/appointments/public/availability/day?serviceId=${serviceId}&employeeId=${employeeId}&date=${date.toISODate()}`
+      : `/appointments/availability/day?serviceId=${serviceId}&employeeId=${employeeId}&date=${date.toISODate()}`;
+
+    const res = await apiFetch<{ slots: string[] }>(
+      url,
+      publicMode ? { public: true } : undefined
+    );
+
+    setSlots(
+      res.slots.map(iso =>
+        DateTime.fromISO(iso, { zone: 'utc' }).setZone(zone)
+      )
+    );
+  } catch {
     setSlots([]);
-    setLoadingSlots(true);
-
-    try {
-      const res = await apiFetch<{ slots: string[] }>(
-        `/appointments/availability/day?serviceId=${serviceId}&employeeId=${employeeId}&date=${date.toISODate()}`,
-        publicMode ? { public: true } : undefined
-      );
-
-      setSlots(
-        res.slots.map(iso =>
-          DateTime.fromISO(iso, { zone: 'utc' }).setZone(zone)
-        )
-      );
-    } catch {
-      setSlots([]);
-    } finally {
-      setLoadingSlots(false);
-    }
+  } finally {
+    setLoadingSlots(false);
   }
-
+}
   /* =========================
      UI
   ========================= */
