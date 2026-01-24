@@ -20,8 +20,8 @@ type Props = { slug: string };
 
 type Draft = {
   serviceId: string | null;
-  dateISO: string | null;   // YYYY-MM-DD
-  startISO: string | null;  // fecha + hora
+  dateISO: string | null;     // YYYY-MM-DD
+  startISO: string | null;    // UTC ISO
   employeeId: string | null;
   clientName: string;
   phone: string;
@@ -77,10 +77,10 @@ export default function BusinessPublicClient({ slug }: Props) {
     draft.phone.trim().length > 0;
 
   /* =========================
-     CREAR CITA
+     CREAR CITA (PUBLIC)
   ========================= */
   async function handleSubmit() {
-    if (loading || !canSubmit) return;
+    if (!canSubmit || loading) return;
 
     setLoading(true);
     setError(null);
@@ -109,15 +109,17 @@ export default function BusinessPublicClient({ slug }: Props) {
 
   /* =========================
      CARGAR EMPLEADOS DISPONIBLES
-     (USA TU BACKEND EXISTENTE)
+     (USA getAvailableEmployees TAL CUAL)
   ========================= */
   async function loadEmployees(startISO: string) {
+    if (!draft.serviceId) return;
+
     setLoadingEmployees(true);
     setEmployees([]);
 
     try {
       const res = await apiFetch<Employee[]>(
-        `/employees/available?slug=${slug}&serviceId=${draft.serviceId}&startISO=${encodeURIComponent(startISO)}`,
+        `/employees/available?serviceId=${draft.serviceId}&startISO=${encodeURIComponent(startISO)}`,
         { public: true }
       );
 
@@ -131,7 +133,7 @@ export default function BusinessPublicClient({ slug }: Props) {
 
   /* =========================
      TIME PICKER SIMPLE
-     (COMO ANTES)
+     (FLUJO VIEJO)
   ========================= */
   function TimePicker() {
     if (!draft.dateISO) return null;
@@ -161,6 +163,7 @@ export default function BusinessPublicClient({ slug }: Props) {
           return (
             <button
               key={iso}
+              type="button"
               className="border rounded px-3 py-2 hover:bg-gray-50"
               onClick={() => {
                 setDraft(d => ({
@@ -211,6 +214,13 @@ export default function BusinessPublicClient({ slug }: Props) {
             <h1 className="text-4xl font-semibold">
               {business.public_title}
             </h1>
+
+            {business.public_description && (
+              <p className="mt-4 opacity-80">
+                {business.public_description}
+              </p>
+            )}
+
             <button
               onClick={() =>
                 bookingRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -271,7 +281,7 @@ export default function BusinessPublicClient({ slug }: Props) {
           </div>
         )}
 
-        {/* EMPLEADOS DISPONIBLES */}
+        {/* EMPLEADOS */}
         {draft.startISO && (
           <div className={theme.card}>
             {loadingEmployees ? (
@@ -282,7 +292,11 @@ export default function BusinessPublicClient({ slug }: Props) {
               employees.map(e => (
                 <button
                   key={e.id}
-                  className="w-full border rounded px-4 py-2 mb-2"
+                  className={`w-full border rounded px-4 py-2 mb-2 ${
+                    draft.employeeId === e.id
+                      ? 'bg-emerald-500/10 border-emerald-400'
+                      : ''
+                  }`}
                   onClick={() =>
                     setDraft(d => ({ ...d, employeeId: e.id }))
                   }
