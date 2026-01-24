@@ -6,7 +6,9 @@ import { apiFetch } from '@/lib/apiFetch';
 
 type Employee = {
   id: string;
-  name: string;
+  first_name?: string;
+  last_name?: string;
+  name?: string;
 };
 
 type Props = {
@@ -114,7 +116,9 @@ export function EmployeeAvailability({
                     : 'bg-white hover:bg-gray-100'
                 }`}
             >
-              {emp.name}
+              {emp.name ??
+ `${emp.first_name ?? ''} ${emp.last_name ?? ''}`.trim()}
+
             </button>
 
             {/* HORARIOS */}
