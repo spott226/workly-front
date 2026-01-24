@@ -4,9 +4,11 @@ import { DateTime } from 'luxon';
 import { Appointment } from '@/lib/appointments';
 
 /* =========================
-   CONSTANTES
+   CONFIG
 ========================= */
 const ZONE = 'America/Mexico_City';
+const LOCALE = 'es';
+
 const HOUR_HEIGHT = 64;
 const MINUTE_HEIGHT = HOUR_HEIGHT / 60;
 
@@ -23,24 +25,25 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 /* =========================
-   COLORES POR EMPLEADA (PALETA SEPARADA)
+   COLORES POR EMPLEADA
+   (DIFERENTES A LOS DE ACCIÓN)
 ========================= */
 const EMPLOYEE_COLORS = [
-  '#F59E0B', // amber
-  '#EC4899', // pink
-  '#06B6D4', // cyan
-  '#A855F7', // purple
-  '#F97316', // orange
-  '#84CC16', // lime
+  '#F97316', // naranja
+  '#EC4899', // rosa
+  '#0EA5E9', // azul claro
+  '#22C55E', // verde claro
+  '#A855F7', // morado
 ];
 
-function getEmployeeColor(employeeId: string) {
+export function getEmployeeColor(employeeId: string) {
   let hash = 0;
   for (let i = 0; i < employeeId.length; i++) {
-    hash = (hash + employeeId.charCodeAt(i)) * 17;
+    hash += employeeId.charCodeAt(i);
   }
-  return EMPLOYEE_COLORS[Math.abs(hash) % EMPLOYEE_COLORS.length];
+  return EMPLOYEE_COLORS[hash % EMPLOYEE_COLORS.length];
 }
+
 
 /* =========================
    TYPES
@@ -87,7 +90,7 @@ export function CalendarView({
   if (view === 'month') {
     return (
       <div className="text-sm opacity-60">
-        Vista mensual (pendiente)
+        Vista mensual pendiente
       </div>
     );
   }
@@ -122,7 +125,9 @@ function DayWeekView({
   baseDate?: DateTime;
   onAppointmentClick?: (a: Appointment) => void;
 }) {
-  const today = (baseDate ?? DateTime.now()).setZone(ZONE);
+  const today = (baseDate ?? DateTime.now())
+    .setZone(ZONE)
+    .setLocale(LOCALE);
 
   const days =
     view === 'day'
@@ -146,7 +151,7 @@ function DayWeekView({
         {days.map(d => (
           <div
             key={d.toISODate()}
-            className="border-b py-2 text-center text-sm font-medium"
+            className="border-b py-2 text-center text-sm font-medium capitalize"
           >
             {d.toFormat('ccc dd')}
           </div>
@@ -251,45 +256,25 @@ function DayColumn({
         const height =
           a.end.diff(a.start, 'minutes').minutes * MINUTE_HEIGHT;
 
-        const statusColor = STATUS_COLORS[a.status];
-        const employeeColor = getEmployeeColor(a.employee_id);
-
         return (
           <div
             key={a.id}
             onClick={() => onAppointmentClick?.(a)}
-            className="absolute left-1 right-1 rounded text-white text-xs cursor-pointer overflow-hidden"
+            className="absolute left-1 right-1 rounded text-white text-xs cursor-pointer overflow-hidden flex flex-col justify-center"
             style={{
               top,
               height,
-              background: `
-                linear-gradient(
-                  90deg,
-                  ${statusColor} 0%,
-                  ${statusColor} 50%,
-                  ${employeeColor} 50%,
-                  ${employeeColor} 100%
-                )
-              `,
+              minHeight: 44,
+              background: `linear-gradient(
+                90deg,
+                ${STATUS_COLORS[a.status]} 0%,
+                ${STATUS_COLORS[a.status]} 50%,
+                ${getEmployeeColor(a.employee_id)} 50%,
+                ${getEmployeeColor(a.employee_id)} 100%
+              )`,
             }}
           >
-            {/* MOBILE FIX */}
-            <div
-              className="sm:hidden absolute inset-0"
-              style={{
-                background: `
-                  linear-gradient(
-                    180deg,
-                    ${statusColor} 0%,
-                    ${statusColor} 50%,
-                    ${employeeColor} 50%,
-                    ${employeeColor} 100%
-                  )
-                `,
-              }}
-            />
-
-            <div className="relative px-2 py-1">
+            <div className="px-2 py-1 leading-tight">
               <div className="font-medium truncate">
                 {a.client_name}
               </div>
@@ -298,7 +283,7 @@ function DayColumn({
                 {a.employee_name}
               </div>
 
-              <div className="text-[11px] opacity-80">
+              <div className="text-[11px] opacity-80 whitespace-nowrap">
                 {a.start.toFormat('HH:mm')} – {a.end.toFormat('HH:mm')}
               </div>
             </div>

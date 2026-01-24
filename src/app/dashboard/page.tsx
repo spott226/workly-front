@@ -11,9 +11,9 @@ import { AppointmentModal } from '@/components/appointments/AppointmentModal';
 import { Appointment, getAppointments } from '@/lib/appointments';
 import { apiFetch } from '@/lib/apiFetch';
 
-/* =========================
-   TYPES
-========================= */
+/* 🔥 IMPORTAMOS LA MISMA FUNCIÓN DEL CALENDAR */
+import { getEmployeeColor } from '@/components/calendar/CalendarView';
+
 type Period = 'day' | 'week' | 'month';
 
 type BusinessHours = {
@@ -21,35 +21,8 @@ type BusinessHours = {
   closing_time: string | null;
 };
 
-type EmployeeLegend = {
-  id: string;
-  name: string;
-};
-
 const ZONE = 'America/Mexico_City';
 
-/* =========================
-   COLORES EMPLEADAS (MISMO HASH QUE CALENDAR)
-========================= */
-const EMPLOYEE_COLORS = [
-  '#F97316',
-  '#EC4899',
-  '#0EA5E9',
-  '#22C55E',
-  '#A855F7',
-];
-
-function getEmployeeColor(employeeId: string) {
-  let hash = 0;
-  for (let i = 0; i < employeeId.length; i++) {
-    hash += employeeId.charCodeAt(i);
-  }
-  return EMPLOYEE_COLORS[hash % EMPLOYEE_COLORS.length];
-}
-
-/* =========================
-   PAGE
-========================= */
 export default function DashboardPage() {
   const router = useRouter();
 
@@ -107,9 +80,9 @@ export default function DashboardPage() {
   }, [appointments, period, date]);
 
   /* =========================
-     LEYENDA DINÁMICA EMPLEADAS
+     LEYENDA (MISMA FUENTE QUE CALENDAR)
   ========================= */
-  const employeeLegend: EmployeeLegend[] = useMemo(() => {
+  const employeeLegend = useMemo(() => {
     const map = new Map<string, string>();
 
     filteredAppointments.forEach(a => {
@@ -118,10 +91,7 @@ export default function DashboardPage() {
       }
     });
 
-    return Array.from(map.entries()).map(([id, name]) => ({
-      id,
-      name,
-    }));
+    return Array.from(map.entries());
   }, [filteredAppointments]);
 
   function moveDate(step: number) {
@@ -171,39 +141,39 @@ export default function DashboardPage() {
         <div className="ml-auto flex items-center gap-3">
           <button onClick={() => moveDate(-1)}>←</button>
           <span className="font-medium">
-            {date.toFormat('dd LLL yyyy')}
+            {date.setLocale('es').toFormat('dd LLL yyyy')}
           </span>
           <button onClick={() => moveDate(1)}>→</button>
         </div>
       </div>
 
-      {/* LEYENDA EMPLEADAS */}
+      {/* LEYENDA EMPLEADAS (RESPONSIVE + CALENDAR-SOURCE) */}
       {employeeLegend.length > 0 && (
-        <div className="mb-4 grid grid-cols-2 sm:grid-cols-3 md:flex md:flex-wrap gap-3">
-          {employeeLegend.map(e => (
+        <div className="mb-4 flex flex-wrap gap-3">
+          {employeeLegend.map(([id, name]) => (
             <div
-              key={e.id}
-              className="flex items-center gap-2 text-sm"
+              key={id}
+              className="flex items-center gap-2 text-sm max-w-full"
             >
               <span
-                className="inline-block w-3 h-3 rounded"
+                className="w-3 h-3 rounded shrink-0"
                 style={{
-                  backgroundColor: getEmployeeColor(e.id),
+                  backgroundColor: getEmployeeColor(id),
                 }}
               />
-              <span className="truncate">{e.name}</span>
+              <span className="truncate">{name}</span>
             </div>
           ))}
         </div>
       )}
 
-      {/* CALENDARIO */}
+      {/* CALENDARIO (INTOCABLE) */}
       <CalendarView
         appointments={filteredAppointments}
         view={period}
         businessHours={businessHours}
         baseDate={date}
-        onAppointmentClick={(a) => setSelectedAppointment(a)}
+        onAppointmentClick={setSelectedAppointment}
       />
 
       {/* MODAL */}
