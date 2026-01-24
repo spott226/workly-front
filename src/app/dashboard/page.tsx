@@ -1,54 +1,83 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { DateTime } from 'luxon';
 import { useRouter } from 'next/navigation';
 
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { CalendarView } from '@/components/calendar/CalendarView';
-import { StaffAvailabilityBoard } from '@/components/calendar/StaffAvailabilityBoard';
-import { apiFetch } from '@/lib/apiFetch';
-import { Appointment } from '@/lib/appointments';
+import { AppointmentCard } from '@/components/appointments/AppointmentCard';
+import { EmployeeAvailabilityList } from '@/components/availability/EmployeeAvailabilityList';
 
-type Business = {
-  id: string;
-  name: string;
-  opening_hour: number;
-  closing_hour: number;
-};
+import { Appointment, getAppointments } from '@/lib/appointments';
 
-type Employee = {
-  id: string;
-  name: string;
-};
+/* =========================
+   TIPOS
+========================= */
+type Period = 'day' | 'week' | 'month' | 'year';
 
+const ZONE = 'America/Mexico_City';
+
+/* =========================
+   PAGE
+========================= */
 export default function DashboardPage() {
   const router = useRouter();
 
-  const [business, setBusiness] = useState<Business | null>(null);
-  const [employees, setEmployees] = useState<Employee[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
-  const [date, setDate] = useState(DateTime.now());
+  const [loading, setLoading] = useState(true);
+
+  const [period, setPeriod] = useState<Period>('day');
+  const [date, setDate] = useState(DateTime.now().setZone(ZONE));
+
+  const [selectedAppointment, setSelectedAppointment] =
+    useState<Appointment | null>(null);
+
+  /* =========================
+     LOAD
+  ========================= */
+  async function loadAppointments() {
+    setLoading(true);
+    const data = await getAppointments();
+    setAppointments(data.filter(a => a.status !== 'CANCELLED'));
+    setLoading(false);
+  }
 
   useEffect(() => {
-    async function load() {
-      const biz = await apiFetch<Business>('/businesses/me');
-      setBusiness(biz);
-
-      const staff = await apiFetch<Employee[]>('/employees');
-      setEmployees(staff);
-
-      const apps = await apiFetch<Appointment[]>('/appointments');
-      setAppointments(apps);
-    }
-
-    load();
+    loadAppointments();
   }, []);
 
-  if (!business) {
+  /* =========================
+     FILTRO POR PERIODO
+  ========================= */
+  const filteredAppointments = useMemo(() => {
+    return appointments.filter(a => {
+      const d = DateTime
+        .fromISO(a.starts_at, { zone: 'utc' })
+        .setZone(ZONE);
+
+      if (period === 'year') return d.year === date.year;
+      if (period === 'month') return d.hasSame(date, 'month');
+      if (period === 'week')
+        return d >= date.startOf('week') && d <= date.endOf('week');
+
+      return d.hasSame(date, 'day');
+    });
+  }, [appointments, period, date]);
+
+  /* =========================
+     NAV DATE
+  ========================= */
+  function moveDate(step: number) {
+    if (period === 'day') setDate(d => d.plus({ days: step }));
+    if (period === 'week') setDate(d => d.plus({ weeks: step }));
+    if (period === 'month') setDate(d => d.plus({ months: step }));
+  }
+
+  if (loading) {
     return (
       <DashboardLayout>
-        <p>Cargando…</p>
+        <p>Cargando agenda…</p>
       </DashboardLayout>
     );
   }
@@ -56,10 +85,8 @@ export default function DashboardPage() {
   return (
     <DashboardLayout>
       {/* HEADER */}
-      <div className="flex justify-between mb-6">
-        <h1 className="text-2xl font-bold">
-          Agenda · {business.name}
-        </h1>
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold">Agenda</h1>
 
         <button
           onClick={() => router.push('/appointments/new')}
@@ -69,41 +96,67 @@ export default function DashboardPage() {
         </button>
       </div>
 
-      {/* SELECTOR DÍA */}
-      <div className="flex items-center gap-3 mb-4">
-        <button
-          onClick={() => setDate(d => d.minus({ days: 1 }))}
-          className="px-3 py-2 border rounded"
-        >
-          ←
-        </button>
+      {/* CONTROLES */}
+      <div className="flex flex-wrap items-center gap-3 mb-4">
+        {(['day', 'week', 'month'] as Period[]).map(p => (
+          <button
+            key={p}
+            onClick={() => setPeriod(p)}
+            className={`px-4 py-2 border rounded ${
+              period === p ? 'bg-black text-white' : ''
+            }`}
+          >
+            {p === 'day' && 'Día'}
+            {p === 'week' && 'Semana'}
+            {p === 'month' && 'Mes'}
+          </button>
+        ))}
 
-        <span className="font-medium">
-          {date.toFormat('dd LLL yyyy')}
-        </span>
-
-        <button
-          onClick={() => setDate(d => d.plus({ days: 1 }))}
-          className="px-3 py-2 border rounded"
-        >
-          →
-        </button>
+        <div className="ml-auto flex items-center gap-3">
+          <button onClick={() => moveDate(-1)}>←</button>
+          <span className="font-medium">
+            {date.toFormat('dd LLL yyyy')}
+          </span>
+          <button onClick={() => moveDate(1)}>→</button>
+        </div>
       </div>
 
       {/* CALENDARIO */}
       <CalendarView
-        appointments={appointments}
-        view="day"
+        appointments={filteredAppointments}
+        view={
+          period === 'day'
+            ? 'day'
+            : period === 'week'
+            ? 'week'
+            : 'month'
+        }
+        onAppointmentClick={setSelectedAppointment}
       />
 
-      {/* DISPONIBILIDAD */}
-      <StaffAvailabilityBoard
-        employees={employees}
-        appointments={appointments}
-        date={date}
-        openingHour={business.opening_hour}
-        closingHour={business.closing_hour}
-      />
+      {/* MODAL CITA */}
+      {selectedAppointment && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center">
+          <div className="bg-white rounded-xl w-full max-w-lg p-4 relative">
+            <button
+              onClick={() => setSelectedAppointment(null)}
+              className="absolute top-3 right-3 text-gray-400 hover:text-black"
+            >
+              ✕
+            </button>
+
+            <AppointmentCard
+              appointment={selectedAppointment}
+              onChange={loadAppointments}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* DISPONIBILIDAD POR EMPLEADO */}
+      <div className="mt-10">
+        <EmployeeAvailabilityList />
+      </div>
     </DashboardLayout>
   );
 }
