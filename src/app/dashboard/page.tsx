@@ -6,13 +6,26 @@ import { useRouter } from 'next/navigation';
 
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { CalendarView } from '@/components/calendar/CalendarView';
-import { AppointmentCard } from '@/components/appointments/AppointmentCard';
+import { AppointmentModal } from '@/components/appointments/AppointmentModal';
+import { StaffAvailabilityBoard } from '@/components/calendar/StaffAvailabilityBoard';
+
 import { Appointment, getAppointments } from '@/lib/appointments';
+import { apiFetch } from '@/lib/apiFetch';
 
 /* =========================
    TIPOS
 ========================= */
 type Period = 'day' | 'week' | 'month' | 'year';
+
+type BusinessHours = {
+  opening_time: string | null;
+  closing_time: string | null;
+};
+
+type Employee = {
+  id: string;
+  name: string;
+};
 
 const ZONE = 'America/Mexico_City';
 
@@ -23,8 +36,12 @@ export default function DashboardPage() {
   const router = useRouter();
 
   const [appointments, setAppointments] = useState<Appointment[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [businessHours, setBusinessHours] =
+    useState<BusinessHours | null>(null);
 
+  const [employees, setEmployees] = useState<Employee[]>([]);
+
+  const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState<Period>('day');
   const [date, setDate] = useState(DateTime.now().setZone(ZONE));
 
@@ -34,15 +51,32 @@ export default function DashboardPage() {
   /* =========================
      LOAD
   ========================= */
-  async function loadAppointments() {
+  async function loadData() {
     setLoading(true);
-    const data = await getAppointments();
-    setAppointments(data.filter(a => a.status !== 'CANCELLED'));
+
+    const [appointmentsData, businessData, employeesData] =
+      await Promise.all([
+        getAppointments(),
+        apiFetch<any>('/businesses/me'),
+        apiFetch<Employee[]>('/employees'),
+      ]);
+
+    setAppointments(
+      appointmentsData.filter(a => a.status !== 'CANCELLED')
+    );
+
+    setBusinessHours({
+      opening_time: businessData.opening_time ?? null,
+      closing_time: businessData.closing_time ?? null,
+    });
+
+    setEmployees(Array.isArray(employeesData) ? employeesData : []);
+
     setLoading(false);
   }
 
   useEffect(() => {
-    loadAppointments();
+    loadData();
   }, []);
 
   /* =========================
@@ -71,7 +105,7 @@ export default function DashboardPage() {
     if (period === 'month') setDate(d => d.plus({ months: step }));
   }
 
-  if (loading) {
+  if (loading || !businessHours) {
     return (
       <DashboardLayout>
         <p className="text-sm text-gray-500">Cargando agenda…</p>
@@ -131,28 +165,41 @@ export default function DashboardPage() {
             ? 'week'
             : 'month'
         }
-        businessHours={null}
+        businessHours={businessHours}
         onAppointmentClick={setSelectedAppointment}
       />
 
-      {/* MODAL CITA */}
+      {/* MODAL */}
       {selectedAppointment && (
-        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center">
-          <div className="bg-white rounded-xl w-full max-w-lg p-4 relative">
-            <button
-              onClick={() => setSelectedAppointment(null)}
-              className="absolute top-3 right-3 text-gray-400 hover:text-black"
-            >
-              ✕
-            </button>
-
-            <AppointmentCard
-              appointment={selectedAppointment}
-              onChange={loadAppointments}
-            />
-          </div>
-        </div>
+        <AppointmentModal
+          appointment={selectedAppointment}
+          onClose={() => setSelectedAppointment(null)}
+          onChange={() => {
+            setSelectedAppointment(null);
+            loadData();
+          }}
+        />
       )}
+
+      {/* =========================
+          EQUIPO DE TRABAJO
+      ========================= */}
+      <div className="mt-12 space-y-6">
+        <h2 className="text-xl font-semibold">
+          Disponibilidad del equipo
+        </h2>
+
+        {employees.map(emp => (
+          <StaffAvailabilityBoard
+            key={emp.id}
+            employee={emp}
+            appointments={appointments}
+            date={date}
+            period={period === 'year' ? 'month' : period}
+            business={businessHours}
+          />
+        ))}
+      </div>
     </DashboardLayout>
   );
 }

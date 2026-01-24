@@ -128,6 +128,7 @@ function DayWeekView({
             day={day}
             appointments={appointments}
             startHour={startHour}
+            endHour={endHour}
             hoursCount={hoursCount}
             onAppointmentClick={onAppointmentClick}
           />
@@ -172,19 +173,38 @@ function DayColumn({
   day,
   appointments,
   startHour,
+  endHour,
   hoursCount,
   onAppointmentClick,
 }: {
   day: DateTime;
   appointments: Appointment[];
   startHour: number;
+  endHour: number;
   hoursCount: number;
   onAppointmentClick?: (a: Appointment) => void;
 }) {
-  const dayAppointments = appointments.filter(a => {
-    const start = DateTime.fromISO(a.starts_at, { zone: 'utc' }).setZone(ZONE);
-    return start.hasSame(day, 'day');
-  });
+  const dayStart = day.set({ hour: startHour, minute: 0 });
+  const dayEnd = day.set({ hour: endHour, minute: 0 });
+
+  const dayAppointments = appointments
+    .map(a => {
+      const start = DateTime.fromISO(a.starts_at, { zone: 'utc' }).setZone(ZONE);
+      const end = DateTime.fromISO(a.ends_at, { zone: 'utc' }).setZone(ZONE);
+
+      if (!start.hasSame(day, 'day')) return null;
+
+      // 🔒 CLAMP AL HORARIO DEL NEGOCIO
+      const visibleStart = start < dayStart ? dayStart : start;
+      const visibleEnd = end > dayEnd ? dayEnd : end;
+
+      if (visibleEnd <= visibleStart) return null;
+
+      return { ...a, visibleStart, visibleEnd };
+    })
+    .filter(Boolean) as Array<
+    Appointment & { visibleStart: DateTime; visibleEnd: DateTime }
+  >;
 
   return (
     <div
@@ -196,14 +216,15 @@ function DayColumn({
       ))}
 
       {dayAppointments.map(a => {
-        const start = DateTime.fromISO(a.starts_at, { zone: 'utc' }).setZone(ZONE);
-        const end = DateTime.fromISO(a.ends_at, { zone: 'utc' }).setZone(ZONE);
-
         const startMinutes =
-          (start.hour - startHour) * 60 + start.minute;
-        const durationMinutes = end.diff(start, 'minutes').minutes;
+          (a.visibleStart.hour - startHour) * 60 +
+          a.visibleStart.minute;
 
-        const top = startMinutes * MINUTE_HEIGHT;
+        const durationMinutes = a.visibleEnd
+          .diff(a.visibleStart, 'minutes')
+          .minutes;
+
+        const top = Math.max(startMinutes * MINUTE_HEIGHT, 0);
         const height = Math.max(durationMinutes * MINUTE_HEIGHT, 24);
 
         return (
@@ -217,7 +238,8 @@ function DayColumn({
               {a.client_name || 'Cliente'}
             </div>
             <div className="opacity-80">
-              {start.toFormat('HH:mm')} – {end.toFormat('HH:mm')}
+              {a.visibleStart.toFormat('HH:mm')} –{' '}
+              {a.visibleEnd.toFormat('HH:mm')}
             </div>
           </div>
         );
