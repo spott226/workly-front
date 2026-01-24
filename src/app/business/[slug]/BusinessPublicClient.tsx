@@ -9,7 +9,7 @@ import { ServiceSelector } from '@/components/booking/ServiceSelector';
 import { ClientForm } from '@/components/booking/ClientForm';
 import { BookingConfirmation } from '@/components/booking/BookingConfirmation';
 import { apiFetch } from '@/lib/apiFetch';
-
+import { EmployeeAvailability } from '@/components/employees/EmployeeAvailability';
 import { BUSINESS_THEMES } from '@/styles/businessThemes';
 import { FONT_PRESETS } from '@/styles/fontPresets';
 
@@ -180,6 +180,24 @@ export default function BusinessPublicClient({ slug }: Props) {
             />
           </div>
         )}
+
+        {draft.serviceId && draft.dateISO && (
+  <div className={theme.card}>
+    <EmployeeAvailability
+      serviceId={draft.serviceId}
+      date={DateTime.fromISO(draft.dateISO, { zone })}
+      publicMode
+      slug={slug}
+      onSelect={(employeeId, startISO) =>
+        setDraft(d => ({
+          ...d,
+          employeeId,
+          startISO,
+        }))
+      }
+    />
+  </div>
+)}
 
         {draft.startISO && (
           <div className={theme.card}>
