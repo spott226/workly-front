@@ -182,24 +182,6 @@ export default function BusinessPublicClient({ slug }: Props) {
           </div>
         )}
 
-        {draft.serviceId && draft.dateISO && (
-          <div className={theme.card}>
-            <EmployeeAvailability
-              slug={slug}
-              publicMode
-              serviceId={draft.serviceId}
-              date={DateTime.fromISO(draft.dateISO, { zone })}
-              onSelect={(employeeId, startISO) =>
-                setDraft(d => ({
-                  ...d,
-                  employeeId,
-                  startISO,
-                }))
-              }
-            />
-          </div>
-        )}
-
         {draft.startISO && (
           <div className={theme.card}>
             <ClientForm
