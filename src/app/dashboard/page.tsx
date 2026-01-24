@@ -21,7 +21,31 @@ type BusinessHours = {
   closing_time: string | null;
 };
 
+type EmployeeLegend = {
+  id: string;
+  name: string;
+};
+
 const ZONE = 'America/Mexico_City';
+
+/* =========================
+   COLORES EMPLEADAS (MISMO HASH QUE CALENDAR)
+========================= */
+const EMPLOYEE_COLORS = [
+  '#F97316',
+  '#EC4899',
+  '#0EA5E9',
+  '#22C55E',
+  '#A855F7',
+];
+
+function getEmployeeColor(employeeId: string) {
+  let hash = 0;
+  for (let i = 0; i < employeeId.length; i++) {
+    hash += employeeId.charCodeAt(i);
+  }
+  return EMPLOYEE_COLORS[hash % EMPLOYEE_COLORS.length];
+}
 
 /* =========================
    PAGE
@@ -68,7 +92,7 @@ export default function DashboardPage() {
   }, []);
 
   /* =========================
-     FILTRO POR FECHA (TU LÓGICA)
+     FILTRO POR FECHA
   ========================= */
   const filteredAppointments = useMemo(() => {
     return appointments.filter(a => {
@@ -81,6 +105,24 @@ export default function DashboardPage() {
       return d.hasSame(date, 'day');
     });
   }, [appointments, period, date]);
+
+  /* =========================
+     LEYENDA DINÁMICA EMPLEADAS
+  ========================= */
+  const employeeLegend: EmployeeLegend[] = useMemo(() => {
+    const map = new Map<string, string>();
+
+    filteredAppointments.forEach(a => {
+      if (a.employee_id && a.employee_name) {
+        map.set(a.employee_id, a.employee_name);
+      }
+    });
+
+    return Array.from(map.entries()).map(([id, name]) => ({
+      id,
+      name,
+    }));
+  }, [filteredAppointments]);
 
   function moveDate(step: number) {
     if (period === 'day') setDate(d => d.plus({ days: step }));
@@ -112,7 +154,6 @@ export default function DashboardPage() {
 
       {/* CONTROLES */}
       <div className="flex flex-wrap items-center gap-3 mb-4">
-        {/* PERIODO */}
         {(['day', 'week', 'month'] as Period[]).map(p => (
           <button
             key={p}
@@ -127,7 +168,6 @@ export default function DashboardPage() {
           </button>
         ))}
 
-        {/* FECHA */}
         <div className="ml-auto flex items-center gap-3">
           <button onClick={() => moveDate(-1)}>←</button>
           <span className="font-medium">
@@ -137,7 +177,27 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* CALENDARIO GENERAL */}
+      {/* LEYENDA EMPLEADAS */}
+      {employeeLegend.length > 0 && (
+        <div className="mb-4 grid grid-cols-2 sm:grid-cols-3 md:flex md:flex-wrap gap-3">
+          {employeeLegend.map(e => (
+            <div
+              key={e.id}
+              className="flex items-center gap-2 text-sm"
+            >
+              <span
+                className="inline-block w-3 h-3 rounded"
+                style={{
+                  backgroundColor: getEmployeeColor(e.id),
+                }}
+              />
+              <span className="truncate">{e.name}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* CALENDARIO */}
       <CalendarView
         appointments={filteredAppointments}
         view={period}
