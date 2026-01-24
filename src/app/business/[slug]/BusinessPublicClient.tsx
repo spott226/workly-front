@@ -37,12 +37,10 @@ export default function BusinessPublicClient({ slug }: Props) {
   const bookingRef = useRef<HTMLDivElement>(null);
   const zone = 'America/Mexico_City';
 
-  // 👇 FECHA MÍNIMA (MAÑANA)
-  const minDateISO =
-    DateTime.now()
-      .setZone(zone)
-      .plus({ days: 1 })
-      .toISODate();
+  const minDateISO = DateTime.now()
+    .setZone(zone)
+    .plus({ days: 1 })
+    .toISODate();
 
   const [draft, setDraft] = useState<Draft>({
     serviceId: null,
@@ -170,14 +168,13 @@ export default function BusinessPublicClient({ slug }: Props) {
           />
         </div>
 
-        {/* FECHA — DESDE MAÑANA */}
         {draft.serviceId && (
           <div className={theme.card}>
             <h3 className="font-semibold mb-2">Selecciona la fecha</h3>
             <input
-             key={draft.serviceId} // 🔥 FIX DEL BUG
               type="date"
-              min={minDateISO as string}
+              min={minDateISO ?? undefined}
+
               onChange={(e) =>
                 setDraft(d => ({
                   ...d,

@@ -23,12 +23,10 @@ export default function NewAppointmentPage() {
   const router = useRouter();
   const zone = 'America/Mexico_City';
 
-  // 👇 FECHA MÍNIMA (MAÑANA)
-  const minDateISO =
-    DateTime.now()
-      .setZone(zone)
-      .plus({ days: 1 })
-      .toISODate();
+  const minDateISO = DateTime.now()
+    .setZone(zone)
+    .plus({ days: 1 })
+    .toISODate();
 
   const [draft, setDraft] = useState<AppointmentDraft>({
     serviceId: null,
@@ -54,6 +52,8 @@ export default function NewAppointmentPage() {
   }
 
   async function handleSubmit() {
+    if (!canSubmit()) return;
+
     setLoading(true);
     setError(null);
 
@@ -103,9 +103,8 @@ export default function NewAppointmentPage() {
           <div className="space-y-2">
             <h3 className="font-semibold">Selecciona la fecha</h3>
             <input
-             key={draft.serviceId} // 🔥 FIX DEL BUG
               type="date"
-              min={minDateISO as string}
+              min={minDateISO ?? undefined}
               onChange={(e) =>
                 setDraft(d => ({
                   ...d,
