@@ -16,7 +16,6 @@ type Props = {
   date: DateTime;
   onSelect: (employeeId: string, startISO: string) => void;
   publicMode?: boolean;
-  slug?: string;
 };
 
 export function EmployeeAvailability({
@@ -24,87 +23,77 @@ export function EmployeeAvailability({
   date,
   onSelect,
   publicMode = false,
-  slug,
 }: Props) {
   const zone = 'America/Mexico_City';
 
   const [employees, setEmployees] = useState<Employee[]>([]);
-  const [activeEmployeeId, setActiveEmployeeId] = useState<string | null>(null);
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null);
   const [slots, setSlots] = useState<DateTime[]>([]);
   const [selectedISO, setSelectedISO] = useState<string | null>(null);
-  const [loadingEmployees, setLoadingEmployees] = useState(false);
+  const [loadingEmployees, setLoadingEmployees] = useState(true);
   const [loadingSlots, setLoadingSlots] = useState(false);
 
   /* =========================
-     CARGAR EMPLEADOS
+     1️⃣ CARGAR EMPLEADOS
+     SOLO LOS DEL SERVICIO
   ========================= */
   useEffect(() => {
-    if (!serviceId || !date) return;
+    let cancelled = false;
 
     async function loadEmployees() {
       setLoadingEmployees(true);
       setEmployees([]);
-      setActiveEmployeeId(null);
+      setSelectedEmployeeId(null);
       setSlots([]);
       setSelectedISO(null);
 
       try {
-        const url = publicMode
-          ? `/employees/public?slug=${slug}`
-          : '/employees';
-
         const res = await apiFetch<Employee[]>(
-          url,
+          `/employees?serviceId=${serviceId}`,
           publicMode ? { public: true } : undefined
         );
 
-        setEmployees(Array.isArray(res) ? res : []);
+        if (!cancelled) {
+          setEmployees(Array.isArray(res) ? res : []);
+        }
       } catch {
-        setEmployees([]);
+        if (!cancelled) setEmployees([]);
       } finally {
-        setLoadingEmployees(false);
+        if (!cancelled) setLoadingEmployees(false);
       }
     }
 
     loadEmployees();
-  }, [serviceId, date, publicMode, slug]);
+    return () => {
+      cancelled = true;
+    };
+  }, [serviceId, date.toISODate(), publicMode]);
 
   /* =========================
-     CARGAR HORARIOS
+     2️⃣ CARGAR HORARIOS (1 REQUEST)
   ========================= */
-  async function loadSlots(employeeId: string) {
-    setActiveEmployeeId(employeeId);
-    setSlots([]);
+  async function loadSlotsForEmployee(employeeId: string) {
+    setSelectedEmployeeId(employeeId);
     setSelectedISO(null);
+    setSlots([]);
     setLoadingSlots(true);
 
-    const startDay = date.setZone(zone).startOf('day');
-    const generated: DateTime[] = [];
+    try {
+      const res = await apiFetch<{ slots: string[] }>(
+        `/appointments/availability/day?serviceId=${serviceId}&employeeId=${employeeId}&date=${date.toISODate()}`,
+        publicMode ? { public: true } : undefined
+      );
 
-    for (let h = 8; h < 20; h++) {
-      generated.push(startDay.set({ hour: h, minute: 0 }));
-      generated.push(startDay.set({ hour: h, minute: 30 }));
+      setSlots(
+        res.slots.map(iso =>
+          DateTime.fromISO(iso, { zone: 'utc' }).setZone(zone)
+        )
+      );
+    } catch {
+      setSlots([]);
+    } finally {
+      setLoadingSlots(false);
     }
-
-    const valid: DateTime[] = [];
-
-    for (const t of generated) {
-      try {
-        const res = await apiFetch<Employee[]>(
-          `/appointments/availability?serviceId=${serviceId}&startISO=${t
-            .setZone('utc')
-            .toISO()}`,
-          publicMode ? { public: true } : undefined
-        );
-
-        if (Array.isArray(res) && res.some(e => e.id === employeeId)) {
-          valid.push(t);
-        }
-      } catch {}
-    }
-
-    setSlots(valid);
-    setLoadingSlots(false);
   }
 
   /* =========================
@@ -125,23 +114,22 @@ export function EmployeeAvailability({
   return (
     <div className="space-y-4">
       {employees.map(emp => {
+        const isActive = emp.id === selectedEmployeeId;
         const label =
           emp.name ??
           `${emp.first_name ?? ''} ${emp.last_name ?? ''}`.trim();
 
-        const isActive = activeEmployeeId === emp.id;
-
         return (
           <div key={emp.id} className="border rounded-lg p-3">
-            {/* EMPLEADO */}
+            {/* EMPLEADA */}
             <button
               type="button"
-              onClick={() => loadSlots(emp.id)}
-              className={`w-full text-left px-4 py-3 rounded-lg border transition
+              onClick={() => loadSlotsForEmployee(emp.id)}
+              className={`w-full text-left px-4 py-3 rounded-lg font-medium transition
                 ${
                   isActive
-                    ? 'border-emerald-500 bg-emerald-50'
-                    : 'border-black/10 hover:border-black/30'
+                    ? 'bg-emerald-500/15 border border-emerald-400'
+                    : 'bg-white hover:bg-gray-50 border'
                 }`}
             >
               {label}
@@ -151,18 +139,16 @@ export function EmployeeAvailability({
             {isActive && (
               <div className="mt-4">
                 {loadingSlots ? (
-                  <p className="text-sm opacity-60">
-                    Cargando horarios…
-                  </p>
+                  <p className="text-sm opacity-60">Cargando horarios…</p>
                 ) : slots.length === 0 ? (
                   <p className="text-sm text-red-500">
-                    Sin horarios disponibles
+                    Esta empleada no tiene horarios disponibles
                   </p>
                 ) : (
                   <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
                     {slots.map(t => {
                       const iso = t.setZone('utc').toISO()!;
-                      const isSelected = selectedISO === iso;
+                      const selected = iso === selectedISO;
 
                       return (
                         <button
@@ -172,11 +158,11 @@ export function EmployeeAvailability({
                             setSelectedISO(iso);
                             onSelect(emp.id, iso);
                           }}
-                          className={`px-3 py-2 rounded-lg border text-sm font-medium transition
+                          className={`px-3 py-2 rounded-md text-sm border transition
                             ${
-                              isSelected
+                              selected
                                 ? 'bg-emerald-500 text-white border-emerald-500'
-                                : 'bg-white hover:bg-emerald-50 border-black/10'
+                                : 'bg-white hover:bg-emerald-50'
                             }`}
                         >
                           {t.toFormat('HH:mm')}
