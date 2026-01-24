@@ -18,9 +18,9 @@ type Props = { slug: string };
 
 type Draft = {
   serviceId: string | null;
-  date: DateTime | null;
+  dateISO: string | null;       // YYYY-MM-DD
   employeeId: string | null;
-  startISO: string | null;
+  startISO: string | null;      // fecha + hora final
   clientName: string;
   phone: string;
 };
@@ -44,7 +44,7 @@ export default function BusinessPublicClient({ slug }: Props) {
 
   const [draft, setDraft] = useState<Draft>({
     serviceId: null,
-    date: null,
+    dateISO: null,
     employeeId: null,
     startISO: null,
     clientName: '',
@@ -56,17 +56,16 @@ export default function BusinessPublicClient({ slug }: Props) {
   const [confirmed, setConfirmed] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const canSubmit =
+    !!draft.serviceId &&
+    !!draft.dateISO &&
+    !!draft.employeeId &&
+    !!draft.startISO &&
+    draft.clientName.trim().length > 0 &&
+    draft.phone.trim().length > 0;
+
   async function handleSubmit() {
-    if (
-      !draft.serviceId ||
-      !draft.date ||
-      !draft.employeeId ||
-      !draft.startISO ||
-      !draft.clientName.trim() ||
-      !draft.phone.trim()
-    ) {
-      return;
-    }
+    if (loading || !canSubmit) return;
 
     setLoading(true);
     setError(null);
@@ -80,16 +79,14 @@ export default function BusinessPublicClient({ slug }: Props) {
           serviceId: draft.serviceId,
           employeeId: draft.employeeId,
           startISO: draft.startISO,
-          clientName: draft.clientName,
-          phone: draft.phone,
+          clientName: draft.clientName.trim(),
+          phone: draft.phone.trim(),
         }),
       });
 
       setConfirmed(true);
     } catch (e) {
-      setError(
-        e instanceof Error ? e.message : 'Error al crear la cita'
-      );
+      setError(e instanceof Error ? e.message : 'Error al crear la cita');
     } finally {
       setLoading(false);
     }
@@ -110,8 +107,7 @@ export default function BusinessPublicClient({ slug }: Props) {
   const fontKey =
     (business?.font_variant as keyof typeof FONT_PRESETS) || 'elegant';
   const fontClass =
-    FONT_PRESETS[fontKey]?.className ??
-    FONT_PRESETS.elegant.className;
+    FONT_PRESETS[fontKey]?.className ?? FONT_PRESETS.elegant.className;
 
   return (
     <main className={`${theme.page} ${fontClass} min-h-screen`}>
@@ -156,14 +152,13 @@ export default function BusinessPublicClient({ slug }: Props) {
             slug={slug}
             publicMode
             onSelect={(serviceId) =>
-              setDraft({
+              setDraft(d => ({
+                ...d,
                 serviceId,
-                date: null,
+                dateISO: null,
                 employeeId: null,
                 startISO: null,
-                clientName: '',
-                phone: '',
-              })
+              }))
             }
           />
         </div>
@@ -174,11 +169,10 @@ export default function BusinessPublicClient({ slug }: Props) {
             <input
               type="date"
               min={minDateISO ?? undefined}
-
               onChange={(e) =>
                 setDraft(d => ({
                   ...d,
-                  date: DateTime.fromISO(e.target.value, { zone }).startOf('day'),
+                  dateISO: e.target.value,
                   employeeId: null,
                   startISO: null,
                 }))
@@ -188,12 +182,13 @@ export default function BusinessPublicClient({ slug }: Props) {
           </div>
         )}
 
-        {draft.serviceId && draft.date && (
+        {draft.serviceId && draft.dateISO && (
           <div className={theme.card}>
             <EmployeeAvailability
-              serviceId={draft.serviceId}
-              date={draft.date}
+              slug={slug}
               publicMode
+              serviceId={draft.serviceId}
+              date={DateTime.fromISO(draft.dateISO, { zone })}
               onSelect={(employeeId, startISO) =>
                 setDraft(d => ({
                   ...d,
@@ -218,15 +213,17 @@ export default function BusinessPublicClient({ slug }: Props) {
         )}
 
         {error && (
-          <p className="text-red-500 text-sm font-medium">
+          <p className="text-red-500 text-sm font-medium text-center">
             {error}
           </p>
         )}
 
         <button
-          disabled={loading}
+          disabled={!canSubmit || loading}
           onClick={handleSubmit}
-          className={`w-full py-4 rounded-xl text-lg transition ${theme.button}`}
+          className={`w-full py-4 rounded-xl text-lg transition ${
+            canSubmit ? theme.button : 'opacity-40 cursor-not-allowed'
+          }`}
         >
           {loading ? 'Creando cita…' : 'Confirmar reserva'}
         </button>
