@@ -6,7 +6,7 @@ import { Appointment } from '@/lib/appointments';
 /* =========================
    CONFIGURACIÓN
 ========================= */
-const zone = 'America/Mexico_City';
+const ZONE = 'America/Mexico_City';
 const START_HOUR = 8;
 const END_HOUR = 22;
 const HOURS = END_HOUR - START_HOUR;
@@ -63,7 +63,8 @@ function DayWeekView({
   view: 'day' | 'week';
   onAppointmentClick?: (a: Appointment) => void;
 }) {
-  const today = DateTime.now().setZone(zone);
+  const today = DateTime.now().setZone(ZONE);
+
   const days =
     view === 'day'
       ? [today]
@@ -128,7 +129,7 @@ function TimeColumn() {
 }
 
 /* =========================
-   COLUMNA DÍA (BLOQUES)
+   COLUMNA DÍA
 ========================= */
 function DayColumn({
   day,
@@ -140,7 +141,7 @@ function DayColumn({
   onAppointmentClick?: (a: Appointment) => void;
 }) {
   const dayAppointments = appointments.filter(a => {
-    const start = DateTime.fromISO(a.starts_at, { zone: 'utc' }).setZone(zone);
+    const start = DateTime.fromISO(a.starts_at, { zone: 'utc' }).setZone(ZONE);
     return start.hasSame(day, 'day');
   });
 
@@ -149,7 +150,7 @@ function DayColumn({
       className="relative border-l"
       style={{ height: HOURS * HOUR_HEIGHT }}
     >
-      {/* Líneas horizontales */}
+      {/* Líneas */}
       {Array.from({ length: HOURS }).map((_, i) => (
         <div
           key={i}
@@ -160,12 +161,14 @@ function DayColumn({
 
       {/* Citas */}
       {dayAppointments.map(a => {
-        const start = DateTime.fromISO(a.starts_at, { zone: 'utc' }).setZone(zone);
-        const end = DateTime.fromISO(a.ends_at, { zone: 'utc' }).setZone(zone);
+        const start = DateTime.fromISO(a.starts_at, { zone: 'utc' }).setZone(ZONE);
+        const end = DateTime.fromISO(a.ends_at, { zone: 'utc' }).setZone(ZONE);
 
         const startMinutes =
           (start.hour - START_HOUR) * 60 + start.minute;
-        const durationMinutes = end.diff(start, 'minutes').minutes;
+
+        const durationMinutes =
+          end.diff(start, 'minutes').minutes;
 
         const top = startMinutes * MINUTE_HEIGHT;
         const height = Math.max(durationMinutes * MINUTE_HEIGHT, 24);
@@ -200,7 +203,7 @@ function MonthView({
   appointments: Appointment[];
   onAppointmentClick?: (a: Appointment) => void;
 }) {
-  const today = DateTime.now().setZone(zone);
+  const today = DateTime.now().setZone(ZONE);
   const start = today.startOf('month').startOf('week');
 
   return (
@@ -209,7 +212,7 @@ function MonthView({
         const day = start.plus({ days: i });
 
         const dayAppointments = appointments.filter(a => {
-          const d = DateTime.fromISO(a.starts_at, { zone: 'utc' }).setZone(zone);
+          const d = DateTime.fromISO(a.starts_at, { zone: 'utc' }).setZone(ZONE);
           return d.hasSame(day, 'day');
         });
 

@@ -4,14 +4,13 @@ import { useEffect, useMemo, useState } from 'react';
 import { DateTime } from 'luxon';
 
 import { Appointment, getAppointments } from '@/lib/appointments';
-import { AppointmentCard } from './AppointmentCard';
 import { CalendarView } from '@/components/calendar/CalendarView';
+import { AppointmentCard } from './AppointmentCard';
 
 /* =========================
    TIPOS
 ========================= */
 type Period = 'day' | 'week' | 'month' | 'year';
-type ViewMode = 'list' | 'calendar';
 
 /* =========================
    CONSTANTES
@@ -21,7 +20,6 @@ const MONTHS = [
   'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
 ];
 
-const PAGE_SIZE = 10;
 const ZONE = 'America/Mexico_City';
 
 /* =========================
@@ -32,12 +30,12 @@ export function AppointmentList() {
   const [loading, setLoading] = useState(true);
 
   const [period, setPeriod] = useState<Period>('day');
-  const [viewMode, setViewMode] = useState<ViewMode>('calendar');
+  const [selectedAppointment, setSelectedAppointment] =
+    useState<Appointment | null>(null);
 
   const currentYear = DateTime.now().setZone(ZONE).year;
   const [year, setYear] = useState(currentYear);
   const [month, setMonth] = useState<number | null>(null);
-  const [page, setPage] = useState(1);
 
   /* =========================
      CARGA
@@ -78,39 +76,6 @@ export function AppointmentList() {
       return d.hasSame(todayMX, 'day');
     });
   }, [appointments, period, year, month, todayMX]);
-
-  /* =========================
-     ORDEN + PAGINACIÓN
-  ========================= */
-  const statusPriority: Record<string, number> = {
-    PENDING: 1,
-    CONFIRMED: 2,
-    ATTENDED: 3,
-    NO_SHOW: 3,
-  };
-
-  const sorted = useMemo(() => {
-    return [...filtered].sort((a, b) => {
-      const pA = statusPriority[a.status] ?? 99;
-      const pB = statusPriority[b.status] ?? 99;
-      if (pA !== pB) return pA - pB;
-
-      return (
-        DateTime.fromISO(a.starts_at).toMillis() -
-        DateTime.fromISO(b.starts_at).toMillis()
-      );
-    });
-  }, [filtered]);
-
-  const totalPages = Math.ceil(sorted.length / PAGE_SIZE);
-  const paginated = sorted.slice(
-    (page - 1) * PAGE_SIZE,
-    page * PAGE_SIZE
-  );
-
-  useEffect(() => {
-    setPage(1);
-  }, [period, year, month, viewMode]);
 
   /* =========================
      STATES
@@ -175,85 +140,39 @@ export function AppointmentList() {
               ))}
             </select>
           )}
-
-          {/* VISTA */}
-          <div className="flex gap-2 ml-auto">
-            <button
-              onClick={() => setViewMode('calendar')}
-              className={`px-3 py-2 text-sm rounded-md border ${
-                viewMode === 'calendar' ? 'bg-black text-white' : 'bg-white'
-              }`}
-            >
-              Calendario
-            </button>
-
-            <button
-              onClick={() => setViewMode('list')}
-              className={`px-3 py-2 text-sm rounded-md border ${
-                viewMode === 'list' ? 'bg-black text-white' : 'bg-white'
-              }`}
-            >
-              Lista
-            </button>
-          </div>
         </div>
       </div>
 
-      {/* CONTENIDO */}
-      {viewMode === 'calendar' ? (
-        <CalendarView
-          appointments={filtered}
-          view={
-            period === 'day'
-              ? 'day'
-              : period === 'week'
-              ? 'week'
-              : 'month'
-          }
-        />
-      ) : (
-        <>
-          <div className="space-y-4">
-            {paginated.length === 0 && (
-              <p className="text-sm text-gray-500">
-                No hay citas en este rango.
-              </p>
-            )}
+      {/* CALENDARIO */}
+      <CalendarView
+        appointments={filtered}
+        view={
+          period === 'day'
+            ? 'day'
+            : period === 'week'
+            ? 'week'
+            : 'month'
+        }
+        onAppointmentClick={setSelectedAppointment}
+      />
 
-            {paginated.map(a => (
-              <AppointmentCard
-                key={a.id}
-                appointment={a}
-                onChange={loadAppointments}
-              />
-            ))}
+      {/* MODAL */}
+      {selectedAppointment && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center">
+          <div className="bg-white rounded-xl w-full max-w-lg p-4 relative">
+            <button
+              onClick={() => setSelectedAppointment(null)}
+              className="absolute top-3 right-3 text-gray-400 hover:text-black"
+            >
+              ✕
+            </button>
+
+            <AppointmentCard
+              appointment={selectedAppointment}
+              onChange={loadAppointments}
+            />
           </div>
-
-          {/* PAGINACIÓN */}
-          {totalPages > 1 && (
-            <div className="flex justify-center items-center gap-3 pt-4">
-              <button
-                disabled={page === 1}
-                onClick={() => setPage(p => p - 1)}
-                className="px-4 py-2 text-sm border rounded-md disabled:opacity-40"
-              >
-                Anterior
-              </button>
-
-              <span className="text-sm text-gray-600">
-                Página {page} de {totalPages}
-              </span>
-
-              <button
-                disabled={page === totalPages}
-                onClick={() => setPage(p => p + 1)}
-                className="px-4 py-2 text-sm border rounded-md disabled:opacity-40"
-              >
-                Siguiente
-              </button>
-            </div>
-          )}
-        </>
+        </div>
       )}
     </div>
   );
