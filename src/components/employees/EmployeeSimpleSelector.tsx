@@ -1,47 +1,41 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { apiFetch } from '@/lib/apiFetch';
-
 type Employee = {
   id: string;
-  first_name?: string;
-  last_name?: string;
-  name?: string;
+  name: string;
 };
 
 type Props = {
-  onSelect: (employee: Employee | null) => void;
+  employees: Employee[];
+  value: Employee | null;
+  onChange: (emp: Employee | null) => void;
 };
 
-export function EmployeeSimpleSelector({ onSelect }: Props) {
-  const [employees, setEmployees] = useState<Employee[]>([]);
-  const [selected, setSelected] = useState<string | null>(null);
-
-  useEffect(() => {
-    apiFetch<Employee[]>('/employees')
-      .then(res => setEmployees(Array.isArray(res) ? res : []))
-      .catch(() => setEmployees([]));
-  }, []);
-
+export function EmployeeSimpleSelector({
+  employees,
+  value,
+  onChange,
+}: Props) {
   return (
-    <div className="max-w-sm space-y-2">
-      <label className="text-sm font-medium">Empleado</label>
+    <div className="space-y-1">
+      <label className="text-sm font-medium">
+        Empleado
+      </label>
 
       <select
-        value={selected ?? ''}
+        className="w-full border rounded px-3 py-2"
+        value={value?.id ?? ''}
         onChange={(e) => {
-          const id = e.target.value;
-          setSelected(id);
-          const emp = employees.find(e => e.id === id) ?? null;
-          onSelect(emp);
+          const emp =
+            employees.find(x => x.id === e.target.value) || null;
+          onChange(emp);
         }}
-        className="w-full border rounded px-3 py-2 text-sm"
       >
-        <option value="">Selecciona empleado</option>
+        <option value="">Selecciona un empleado</option>
+
         {employees.map(e => (
           <option key={e.id} value={e.id}>
-            {e.name ?? `${e.first_name ?? ''} ${e.last_name ?? ''}`}
+            {e.name}
           </option>
         ))}
       </select>

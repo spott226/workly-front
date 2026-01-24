@@ -1,167 +1,106 @@
 'use client';
 
 import { DateTime } from 'luxon';
-import { Fragment, useMemo } from 'react';
-import { Appointment } from '@/lib/appointments';
 
-const ZONE = 'America/Mexico_City';
+type Appointment = {
+  employee_id: string;
+  starts_at: string;
+  ends_at: string;
+  status: string;
+};
 
-/* =========================
-   TYPES
-========================= */
 type Employee = {
   id: string;
   name: string;
 };
 
-type Business = {
-  opening_time: string | null;
-  closing_time: string | null;
+type BusinessHours = {
+  opening_time: string; // "13:00"
+  closing_time: string; // "21:00"
 };
-
-type Period = 'day' | 'week' | 'month';
 
 type Props = {
   employee: Employee;
   appointments: Appointment[];
-  date: DateTime;
-  period: Period;
-  business: Business;
+  date: Date;
+  business: BusinessHours;
 };
 
-/* =========================
-   HELPERS
-========================= */
-function normalizeName(name: string) {
-  return name
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
-/* =========================
-   COMPONENT
-========================= */
-export function StaffAvailabilityBoard({
+export default function StaffAvailabilityBoard({
   employee,
   appointments,
   date,
-  period,
   business,
 }: Props) {
-  /* =========================
-     BUSINESS HOURS
-  ========================= */
-  const hours = useMemo(() => {
-    if (!business.opening_time || !business.closing_time) return [];
+  if (!employee || !business) return null;
 
-    const [openH, openM] = business.opening_time.split(':').map(Number);
-    const [closeH, closeM] = business.closing_time.split(':').map(Number);
+  const zone = 'America/Mexico_City';
+  const day = DateTime.fromJSDate(date).setZone(zone);
 
-    const slots: DateTime[] = [];
+  const opening = DateTime.fromISO(
+    `${day.toISODate()}T${business.opening_time}`,
+    { zone }
+  );
 
-    let cursor = date
-      .setZone(ZONE)
-      .set({ hour: openH, minute: openM, second: 0 });
+  const closing = DateTime.fromISO(
+    `${day.toISODate()}T${business.closing_time}`,
+    { zone }
+  );
 
-    const end = date
-      .setZone(ZONE)
-      .set({ hour: closeH, minute: closeM, second: 0 });
+  // slots de 30 min
+  const slots: DateTime[] = [];
+  let cursor = opening;
 
-    while (cursor < end) {
-      slots.push(cursor);
-      cursor = cursor.plus({ minutes: 30 });
-    }
+  while (cursor < closing) {
+    slots.push(cursor);
+    cursor = cursor.plus({ minutes: 30 });
+  }
 
-    return slots;
-  }, [business, date]);
+  const employeeAppointments = appointments.filter(
+    (a) =>
+      a.employee_id === employee.id &&
+      a.status !== 'CANCELLED'
+  );
 
-  /* =========================
-     FILTER APPOINTMENTS (PERIOD)
-  ========================= */
-  const scopedAppointments = useMemo(() => {
-    return appointments.filter(a => {
-      const d = DateTime
-        .fromISO(a.starts_at, { zone: 'utc' })
-        .setZone(ZONE);
-
-      if (period === 'day') {
-        return d.hasSame(date, 'day');
-      }
-
-      if (period === 'week') {
-        return (
-          d >= date.startOf('week') &&
-          d <= date.endOf('week')
-        );
-      }
-
-      return d.hasSame(date, 'month');
-    });
-  }, [appointments, period, date]);
-
-  /* =========================
-     SLOT STATUS
-  ========================= */
   function isOccupied(slot: DateTime) {
-    return scopedAppointments.some(a => {
-      if (
-        !a.employee_name ||
-        normalizeName(a.employee_name) !==
-          normalizeName(employee.name)
-      ) {
-        return false;
-      }
-
-      const start = DateTime
-        .fromISO(a.starts_at, { zone: 'utc' })
-        .setZone(ZONE);
-
-      const end = DateTime
-        .fromISO(a.ends_at, { zone: 'utc' })
-        .setZone(ZONE);
-
+    return employeeAppointments.some((a) => {
+      const start = DateTime.fromISO(a.starts_at, { zone: 'utc' }).setZone(zone);
+      const end = DateTime.fromISO(a.ends_at, { zone: 'utc' }).setZone(zone);
       return slot >= start && slot < end;
     });
   }
 
-  /* =========================
-     RENDER
-  ========================= */
   return (
-    <div className="border rounded overflow-x-auto">
-      <div className="grid grid-cols-[100px_1fr]">
-        {/* HEADER */}
-        <div className="border-b p-2 font-medium">
-          Hora
-        </div>
-        <div className="border-b p-2 font-medium text-center">
-          {employee.name}
-        </div>
-
-        {/* SLOTS */}
-        {hours.map(slot => {
-          const busy = isOccupied(slot);
-
-          return (
-            <Fragment key={slot.toISO()}>
-              <div className="border-t p-2 text-sm">
-                {slot.toFormat('HH:mm')}
-              </div>
-
-              <div
-                className={`border-t h-8 transition ${
-                  busy
-                    ? 'bg-blue-500/80'
-                    : 'bg-emerald-400/70'
-                }`}
-              />
-            </Fragment>
-          );
-        })}
+    <div className="border rounded mt-4 overflow-hidden">
+      <div className="grid grid-cols-[80px_1fr] border-b font-semibold bg-gray-50">
+        <div className="p-2">Hora</div>
+        <div className="p-2">{employee.name}</div>
       </div>
+
+      {slots.map((slot) => {
+        const occupied = isOccupied(slot);
+
+        return (
+          <div
+            key={slot.toISO()}
+            className="grid grid-cols-[80px_1fr] border-b text-sm"
+          >
+            <div className="p-2 text-gray-600">
+              {slot.toFormat('HH:mm')}
+            </div>
+
+            <div
+              className={`p-2 ${
+                occupied
+                  ? 'bg-blue-500 text-white'
+                  : 'bg-green-200'
+              }`}
+            >
+              {occupied ? 'Ocupado' : 'Libre'}
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
