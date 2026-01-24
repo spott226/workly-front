@@ -10,13 +10,9 @@ type Employee = {
   name: string;
 };
 
-type Slot = {
-  startISO: string;
-};
-
 type Props = {
   serviceId: string;
-  date: DateTime;
+  date: DateTime; // fecha del día seleccionado (sin hora)
   onSelect: (employeeId: string, startISO: string) => void;
   publicMode?: boolean;
 };
@@ -30,32 +26,54 @@ export function EmployeeAvailability({
   const zone = 'America/Mexico_City';
 
   const [employees, setEmployees] = useState<Employee[]>([]);
-  const [slotsByEmployee, setSlotsByEmployee] = useState<Record<string, Slot[]>>(
-    {}
-  );
+  const [slotsByEmployee, setSlotsByEmployee] = useState<
+    Record<string, DateTime[]>
+  >({});
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function load() {
       setLoading(true);
 
+      // 1) empleados
       const emps = await apiFetch<Employee[]>(
         '/employees',
         publicMode ? { public: true } : undefined
       );
-
       setEmployees(emps);
 
-      const map: Record<string, Slot[]> = {};
+      // 2) generar horas del día (cada 30 min)
+      const startDay = date.setZone(zone).startOf('day');
+      const slots: DateTime[] = [];
+      for (let h = 8; h < 20; h++) {
+        slots.push(startDay.set({ hour: h, minute: 0 }));
+        slots.push(startDay.set({ hour: h, minute: 30 }));
+      }
 
+      // 3) validar cada hora contra backend (getAvailableEmployees)
+      const map: Record<string, DateTime[]> = {};
       await Promise.all(
         emps.map(async emp => {
-          const slots = await apiFetch<Slot[]>(
-            `/availability?serviceId=${serviceId}&employeeId=${emp.id}&date=${date.toISODate()}`,
-            publicMode ? { public: true } : undefined
-          );
+          const valid: DateTime[] = [];
 
-          map[emp.id] = slots;
+          for (const t of slots) {
+            try {
+              const res = await apiFetch<Employee[]>(
+                `/availability?serviceId=${serviceId}&startISO=${t
+                  .setZone('utc')
+                  .toISO()}`,
+                publicMode ? { public: true } : undefined
+              );
+
+              if (Array.isArray(res) && res.find(e => e.id === emp.id)) {
+                valid.push(t);
+              }
+            } catch {
+              // ignora
+            }
+          }
+
+          map[emp.id] = valid;
         })
       );
 
@@ -73,9 +91,7 @@ export function EmployeeAvailability({
   return (
     <div className="space-y-4">
       {employees.map(emp => {
-        const slots = (slotsByEmployee[emp.id] ?? []).map(s =>
-          DateTime.fromISO(s.startISO, { zone: 'utc' }).setZone(zone)
-        );
+        const slots = slotsByEmployee[emp.id] ?? [];
 
         return (
           <div key={emp.id} className="border rounded p-3">

@@ -23,6 +23,13 @@ export default function NewAppointmentPage() {
   const router = useRouter();
   const zone = 'America/Mexico_City';
 
+  // 👇 FECHA MÍNIMA (MAÑANA)
+  const minDateISO =
+    DateTime.now()
+      .setZone(zone)
+      .plus({ days: 1 })
+      .toISODate();
+
   const [draft, setDraft] = useState<AppointmentDraft>({
     serviceId: null,
     date: null,
@@ -64,7 +71,9 @@ export default function NewAppointmentPage() {
 
       router.push('/appointments');
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Error al crear la cita');
+      setError(
+        e instanceof Error ? e.message : 'Error al crear la cita'
+      );
     } finally {
       setLoading(false);
     }
@@ -75,7 +84,7 @@ export default function NewAppointmentPage() {
       <h1 className="text-xl font-bold mb-4">Nueva cita</h1>
 
       <div className="max-w-xl space-y-6">
-        {/* 1️⃣ SERVICIO */}
+        {/* SERVICIO */}
         <ServiceSelector
           onSelect={(serviceId) =>
             setDraft({
@@ -89,37 +98,33 @@ export default function NewAppointmentPage() {
           }
         />
 
-        {/* 2️⃣ FECHA (SIEMPRE MAÑANA, LIMPIA) */}
+        {/* FECHA — DESDE MAÑANA */}
         {draft.serviceId && (
           <div className="space-y-2">
-            <h3 className="font-semibold">Selecciona el día</h3>
-
-            <button
-              onClick={() =>
-                setDraft((d) => ({
+            <h3 className="font-semibold">Selecciona la fecha</h3>
+            <input
+              type="date"
+              min={minDateISO as string}
+              onChange={(e) =>
+                setDraft(d => ({
                   ...d,
-                  date: DateTime.now()
-                    .setZone(zone)
-                    .plus({ days: 1 })
-                    .startOf('day'),
+                  date: DateTime.fromISO(e.target.value, { zone }).startOf('day'),
                   employeeId: null,
                   startISO: null,
                 }))
               }
-              className="px-3 py-2 border rounded"
-            >
-              Seleccionar fecha (mañana)
-            </button>
+              className="w-full px-3 py-2 border rounded"
+            />
           </div>
         )}
 
-        {/* 3️⃣ EMPLEADAS + HORARIOS */}
+        {/* EMPLEADAS + HORARIOS */}
         {draft.serviceId && draft.date && (
           <EmployeeAvailability
             serviceId={draft.serviceId}
             date={draft.date}
             onSelect={(employeeId, startISO) =>
-              setDraft((d) => ({
+              setDraft(d => ({
                 ...d,
                 employeeId,
                 startISO,
@@ -128,19 +133,21 @@ export default function NewAppointmentPage() {
           />
         )}
 
-        {/* 4️⃣ CLIENTE */}
+        {/* CLIENTE */}
         {draft.startISO && (
           <ClientForm
             clientName={draft.clientName}
             phone={draft.phone}
             onChange={(data) =>
-              setDraft((d) => ({ ...d, ...data }))
+              setDraft(d => ({ ...d, ...data }))
             }
           />
         )}
 
         {error && (
-          <p className="text-sm text-red-600 font-medium">{error}</p>
+          <p className="text-sm text-red-600 font-medium">
+            {error}
+          </p>
         )}
 
         <button

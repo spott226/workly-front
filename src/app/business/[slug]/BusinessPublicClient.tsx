@@ -37,6 +37,13 @@ export default function BusinessPublicClient({ slug }: Props) {
   const bookingRef = useRef<HTMLDivElement>(null);
   const zone = 'America/Mexico_City';
 
+  // 👇 FECHA MÍNIMA (MAÑANA)
+  const minDateISO =
+    DateTime.now()
+      .setZone(zone)
+      .plus({ days: 1 })
+      .toISODate();
+
   const [draft, setDraft] = useState<Draft>({
     serviceId: null,
     date: null,
@@ -59,8 +66,9 @@ export default function BusinessPublicClient({ slug }: Props) {
       !draft.startISO ||
       !draft.clientName.trim() ||
       !draft.phone.trim()
-    )
+    ) {
       return;
+    }
 
     setLoading(true);
     setError(null);
@@ -162,26 +170,23 @@ export default function BusinessPublicClient({ slug }: Props) {
           />
         </div>
 
-        {/* FECHA — SIEMPRE MAÑANA, LIMPIA */}
+        {/* FECHA — DESDE MAÑANA */}
         {draft.serviceId && (
           <div className={theme.card}>
-            <h3 className="font-semibold mb-2">Selecciona el día</h3>
-            <button
-              onClick={() =>
+            <h3 className="font-semibold mb-2">Selecciona la fecha</h3>
+            <input
+              type="date"
+              min={minDateISO as string}
+              onChange={(e) =>
                 setDraft(d => ({
                   ...d,
-                  date: DateTime.now()
-                    .setZone(zone)
-                    .plus({ days: 1 })
-                    .startOf('day'),
+                  date: DateTime.fromISO(e.target.value, { zone }).startOf('day'),
                   employeeId: null,
                   startISO: null,
                 }))
               }
-              className="px-3 py-2 border rounded"
-            >
-              Seleccionar fecha (mañana)
-            </button>
+              className="w-full px-3 py-2 border rounded"
+            />
           </div>
         )}
 
@@ -239,19 +244,6 @@ export default function BusinessPublicClient({ slug }: Props) {
           </Link>
         </p>
       </section>
-
-      <style jsx global>{`
-        @keyframes fadeUp {
-          from {
-            opacity: 0;
-            transform: translateY(12px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-      `}</style>
     </main>
   );
 }
