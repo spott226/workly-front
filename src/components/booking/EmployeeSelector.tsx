@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { DateTime } from 'luxon';
 import { apiFetch } from '@/lib/apiFetch';
 
 type Employee = {
@@ -8,102 +9,107 @@ type Employee = {
   name: string;
 };
 
+type EmployeeSlots = {
+  employee: Employee;
+  slots: string[]; // ISO UTC
+};
+
 type Props = {
   serviceId: string | null;
-  startISO: string | null;
-  onSelect: (employeeId: string) => void;
+  dateISO: string | null; // YYYY-MM-DD
+  onSelect: (employeeId: string, startISO: string) => void;
   publicMode?: boolean;
 };
 
 export function EmployeeSelector({
   serviceId,
-  startISO,
+  dateISO,
   onSelect,
   publicMode = false,
 }: Props) {
-  const [employees, setEmployees] = useState<Employee[]>([]);
-  const [selected, setSelected] = useState<string | null>(null);
+  const [data, setData] = useState<EmployeeSlots[]>([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!serviceId || !startISO) return;
+    if (!serviceId || !dateISO) return;
 
     let cancelled = false;
-
-    setEmployees([]);
-    setSelected(null);
-    setError(null);
     setLoading(true);
+    setData([]);
 
-    const url = `/api/appointments/availability?serviceId=${serviceId}&startISO=${encodeURIComponent(
-      startISO
-    )}`;
+    // 1️⃣ obtener empleadas del servicio (sin hora)
+    apiFetch(
+      `/api/employees?serviceId=${serviceId}`,
+      publicMode ? { public: true } : undefined
+    )
+      .then(async (employees: Employee[]) => {
+        const results: EmployeeSlots[] = [];
 
-    apiFetch(url, publicMode ? { public: true } : undefined)
-      .then((res) => {
-        if (!cancelled) {
-          setEmployees(Array.isArray(res) ? res : []);
+        for (const e of employees) {
+          const slots = await apiFetch<string[]>(
+            `/api/appointments/employee-day-availability?serviceId=${serviceId}&employeeId=${e.id}&dateISO=${dateISO}`,
+            publicMode ? { public: true } : undefined
+          );
+
+          if (slots.length) {
+            results.push({ employee: e, slots });
+          }
         }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setError('No hay empleados disponibles para este horario');
-        }
+
+        if (!cancelled) setData(results);
       })
       .finally(() => {
-        if (!cancelled) {
-          setLoading(false);
-        }
+        if (!cancelled) setLoading(false);
       });
 
     return () => {
       cancelled = true;
     };
-  }, [serviceId, startISO, publicMode]);
+  }, [serviceId, dateISO, publicMode]);
 
-  if (!serviceId || !startISO) return null;
+  if (!serviceId || !dateISO) return null;
 
   return (
-    <div className="mt-6 border-t border-black/10 pt-4 space-y-3">
+    <div className="mt-6 border-t border-black/10 pt-4 space-y-4">
       <h3 className="font-semibold text-sm md:text-base">
-        Selecciona empleada
+        Horarios disponibles
       </h3>
 
       {loading && (
-        <p className="text-sm opacity-60">
-          Cargando disponibilidad…
-        </p>
+        <p className="text-sm opacity-60">Cargando horarios…</p>
       )}
 
-      {!loading && error && (
-        <p className="text-sm text-red-600">{error}</p>
-      )}
-
-      {!loading && !error && employees.length === 0 && (
+      {!loading && data.length === 0 && (
         <p className="text-sm text-red-600">
-          No hay empleados disponibles para este horario
+          No hay horarios disponibles para este día
         </p>
       )}
 
-      <div className="space-y-3">
-        {employees.map((e) => (
-          <button
-            key={e.id}
-            type="button"
-            onClick={() => {
-              setSelected(e.id);
-              onSelect(e.id);
-            }}
-            className={`w-full text-left rounded-lg px-4 py-3 transition border
-              ${
-                selected === e.id
-                  ? 'border-emerald-400 ring-2 ring-emerald-400/40 bg-emerald-500/10'
-                  : 'border-black/10 hover:border-black/30'
-              }`}
-          >
-            {e.name}
-          </button>
+      <div className="space-y-4">
+        {data.map(({ employee, slots }) => (
+          <div key={employee.id} className="space-y-2">
+            <p className="font-medium">{employee.name}</p>
+
+            <div className="flex flex-wrap gap-2">
+              {slots.map((iso) => {
+                const label = DateTime
+                  .fromISO(iso, { zone: 'utc' })
+                  .setZone('America/Mexico_City')
+                  .toFormat('HH:mm');
+
+                return (
+                  <button
+                    key={iso}
+                    type="button"
+                    onClick={() => onSelect(employee.id, iso)}
+                    className="px-3 py-1 rounded border border-black/20 text-sm hover:bg-black hover:text-white transition"
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         ))}
       </div>
     </div>
