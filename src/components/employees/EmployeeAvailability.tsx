@@ -16,6 +16,7 @@ type Props = {
   date: DateTime;
   onSelect: (employeeId: string, startISO: string) => void;
   publicMode?: boolean;
+  slug?: string; // 👈 CLAVE
 };
 
 export function EmployeeAvailability({
@@ -23,6 +24,7 @@ export function EmployeeAvailability({
   date,
   onSelect,
   publicMode = false,
+  slug,
 }: Props) {
   const zone = 'America/Mexico_City';
 
@@ -34,7 +36,7 @@ export function EmployeeAvailability({
   const [loadingSlots, setLoadingSlots] = useState(false);
 
   /* =========================
-     1️⃣ CARGAR EMPLEADAS (SOLO POR SERVICIO)
+     1️⃣ CARGAR EMPLEADAS
   ========================= */
   useEffect(() => {
     let cancelled = false;
@@ -47,8 +49,12 @@ export function EmployeeAvailability({
       setSelectedISO(null);
 
       try {
+        const url = publicMode
+          ? `/employees/public?slug=${slug}&serviceId=${serviceId}`
+          : `/employees?serviceId=${serviceId}`;
+
         const res = await apiFetch<Employee[]>(
-          `/employees?serviceId=${serviceId}`,
+          url,
           publicMode ? { public: true } : undefined
         );
 
@@ -66,10 +72,10 @@ export function EmployeeAvailability({
     return () => {
       cancelled = true;
     };
-  }, [serviceId, publicMode]);
+  }, [serviceId, publicMode, slug]);
 
   /* =========================
-     2️⃣ CARGAR SLOTS DE UNA EMPLEADA
+     2️⃣ CARGAR HORARIOS
   ========================= */
   async function loadSlotsForEmployee(employeeId: string) {
     setSelectedEmployeeId(employeeId);
@@ -120,7 +126,6 @@ export function EmployeeAvailability({
 
         return (
           <div key={emp.id} className="border rounded-lg p-3">
-            {/* EMPLEADA */}
             <button
               type="button"
               onClick={() => loadSlotsForEmployee(emp.id)}
@@ -134,7 +139,6 @@ export function EmployeeAvailability({
               {label}
             </button>
 
-            {/* HORARIOS */}
             {isActive && (
               <div className="mt-4">
                 {loadingSlots ? (
@@ -146,7 +150,7 @@ export function EmployeeAvailability({
                 ) : (
                   <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
                     {slots.map(t => {
-                      const iso = t.toISO()!; // ⬅️ NO volver a UTC
+                      const iso = t.toISO()!;
                       const selected = iso === selectedISO;
 
                       return (
