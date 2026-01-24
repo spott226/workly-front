@@ -8,7 +8,7 @@ const HOUR_HEIGHT = 64;
 const MINUTE_HEIGHT = HOUR_HEIGHT / 60;
 
 /* =========================
-   COLORES POR ESTADO
+   COLORES POR ESTADO (NO TOCAR)
 ========================= */
 const STATUS_COLORS: Record<string, string> = {
   PENDING: '#2563EB',
@@ -23,11 +23,12 @@ const STATUS_COLORS: Record<string, string> = {
    COLORES POR EMPLEADA (FIJOS)
 ========================= */
 const EMPLOYEE_COLORS = [
-  '#F97316',
-  '#EC4899',
-  '#0EA5E9',
-  '#22C55E',
-  '#A855F7',
+  '#F97316', // naranja
+  '#EC4899', // rosa
+  '#0EA5E9', // azul claro
+  '#22C55E', // verde claro
+  '#A855F7', // violeta
+  '#EAB308', // amarillo
 ];
 
 function getEmployeeColor(employeeId: string) {
@@ -243,6 +244,9 @@ function DayColumn({
         const height =
           a.end.diff(a.start, 'minutes').minutes * MINUTE_HEIGHT;
 
+        const statusColor = STATUS_COLORS[a.status];
+        const employeeColor = getEmployeeColor(a.employee_id);
+
         return (
           <div
             key={a.id}
@@ -251,25 +255,25 @@ function DayColumn({
             style={{
               top,
               height,
-              backgroundColor: STATUS_COLORS[a.status],
+              background: `linear-gradient(
+                to right,
+                ${statusColor} 0%,
+                ${statusColor} 50%,
+                ${employeeColor} 50%,
+                ${employeeColor} 100%
+              )`,
             }}
           >
-            {/* EMPLOYEE COLOR STRIP */}
-            <div
-              className="absolute left-0 top-0 bottom-0 w-1"
-              style={{
-                backgroundColor: getEmployeeColor(a.employee_id),
-              }}
-            />
-
-            <div className="pl-3 pr-2 py-1">
-              <div className="font-medium truncate">
+            <div className="px-3 py-1 leading-tight">
+              <div className="font-semibold truncate">
                 {a.client_name}
               </div>
-              <div className="opacity-80 text-[11px]">
+
+              <div className="text-[11px] opacity-90 truncate">
                 {a.employee_name}
               </div>
-              <div className="opacity-70 text-[11px]">
+
+              <div className="text-[11px] opacity-80">
                 {a.start.toFormat('HH:mm')} – {a.end.toFormat('HH:mm')}
               </div>
             </div>
