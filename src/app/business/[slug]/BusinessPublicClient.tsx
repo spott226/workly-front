@@ -197,6 +197,7 @@ export default function BusinessPublicClient({ slug }: Props) {
               serviceId={draft.serviceId}
               date={draft.date}
               publicMode
+              slug={slug}
               onSelect={(employeeId, startISO) =>
                 setDraft(d => ({
                   ...d,
