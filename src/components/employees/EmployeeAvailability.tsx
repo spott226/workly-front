@@ -44,9 +44,9 @@ export function EmployeeAvailability({
       setSelectedISO(null);
 
       const emps = await apiFetch<Employee[]>(
-        '/employees',
-        publicMode ? { public: true } : undefined
-      );
+  `/employees?serviceId=${serviceId}`,
+  publicMode ? { public: true } : undefined
+);
 
       setEmployees(emps);
       setLoading(false);
