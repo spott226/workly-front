@@ -39,43 +39,42 @@ export function EmployeeAvailability({
      CARGAR EMPLEADAS
   ========================= */
   useEffect(() => {
-    // 🔥 CLAVE: no disparar si es público y no hay slug
-    if (publicMode && !slug) return;
+  if (publicMode && !slug) return;
 
-    let cancelled = false;
+  let cancelled = false;
 
-    async function loadEmployees() {
-      setLoadingEmployees(true);
-      setEmployees([]);
-      setSelectedEmployeeId(null);
-      setSlots([]);
-      setSelectedISO(null);
+  async function loadEmployees() {
+    setLoadingEmployees(true);
+    setEmployees([]);
+    setSelectedEmployeeId(null);
+    setSlots([]);
+    setSelectedISO(null);
 
-      try {
-        const url = publicMode
-          ? `/employees/public?slug=${slug}&serviceId=${serviceId}`
-          : `/employees?serviceId=${serviceId}`;
+    try {
+      const url = publicMode
+        ? `/employees/public?slug=${slug}&serviceId=${serviceId}`
+        : `/employees?serviceId=${serviceId}`;
 
-        const res = await apiFetch<Employee[]>(
-          url,
-          publicMode ? { public: true } : undefined
-        );
+      const res = await apiFetch<Employee[]>(
+        url,
+        publicMode ? { public: true } : undefined
+      );
 
-        if (!cancelled) {
-          setEmployees(Array.isArray(res) ? res : []);
-        }
-      } catch {
-        if (!cancelled) setEmployees([]);
-      } finally {
-        if (!cancelled) setLoadingEmployees(false);
+      if (!cancelled) {
+        setEmployees(Array.isArray(res) ? res : []);
       }
+    } catch {
+      if (!cancelled) setEmployees([]);
+    } finally {
+      if (!cancelled) setLoadingEmployees(false);
     }
+  }
 
-    loadEmployees();
-    return () => {
-      cancelled = true;
-    };
-  }, [serviceId, publicMode, slug]);
+  loadEmployees();
+  return () => {
+    cancelled = true;
+  };
+}, [serviceId, date, publicMode, slug]);
 
   /* =========================
      CARGAR HORARIOS
