@@ -34,8 +34,7 @@ export function EmployeeAvailability({
   const [loadingSlots, setLoadingSlots] = useState(false);
 
   /* =========================
-     1️⃣ CARGAR EMPLEADOS
-     SOLO LOS DEL SERVICIO
+     1️⃣ CARGAR EMPLEADAS (SOLO POR SERVICIO)
   ========================= */
   useEffect(() => {
     let cancelled = false;
@@ -67,10 +66,10 @@ export function EmployeeAvailability({
     return () => {
       cancelled = true;
     };
-  }, [serviceId, date.toISODate(), publicMode]);
+  }, [serviceId, publicMode]);
 
   /* =========================
-     2️⃣ CARGAR HORARIOS (1 REQUEST)
+     2️⃣ CARGAR SLOTS DE UNA EMPLEADA
   ========================= */
   async function loadSlotsForEmployee(employeeId: string) {
     setSelectedEmployeeId(employeeId);
@@ -100,13 +99,13 @@ export function EmployeeAvailability({
      UI
   ========================= */
   if (loadingEmployees) {
-    return <p className="text-sm opacity-60">Cargando empleadas…</p>;
+    return <p className="text-sm opacity-60">Cargando personal…</p>;
   }
 
   if (employees.length === 0) {
     return (
       <p className="text-sm text-red-500">
-        No hay empleadas disponibles para este servicio
+        No hay personal asignado a este servicio
       </p>
     );
   }
@@ -142,12 +141,12 @@ export function EmployeeAvailability({
                   <p className="text-sm opacity-60">Cargando horarios…</p>
                 ) : slots.length === 0 ? (
                   <p className="text-sm text-red-500">
-                    Esta empleada no tiene horarios disponibles
+                    Esta empleada no tiene horarios disponibles este día
                   </p>
                 ) : (
                   <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
                     {slots.map(t => {
-                      const iso = t.setZone('utc').toISO()!;
+                      const iso = t.toISO()!; // ⬅️ NO volver a UTC
                       const selected = iso === selectedISO;
 
                       return (
