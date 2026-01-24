@@ -1,117 +1,129 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { DateTime } from 'luxon';
+import { useEffect, useState, FC } from 'react';
 import { apiFetch } from '@/lib/apiFetch';
 
+/* =========================
+   TIPOS
+========================= */
 type Employee = {
   id: string;
   name: string;
 };
 
-type EmployeeSlots = {
-  employee: Employee;
-  slots: string[]; // ISO UTC
-};
-
 type Props = {
   serviceId: string | null;
-  dateISO: string | null; // YYYY-MM-DD
-  onSelect: (employeeId: string, startISO: string) => void;
+  startISO: string | null;
+  onSelect: (employeeId: string) => void;
   publicMode?: boolean;
 };
 
-export function EmployeeSelector({
+/* =========================
+   COMPONENTE
+========================= */
+export const EmployeeSelector: FC<Props> = ({
   serviceId,
-  dateISO,
+  startISO,
   onSelect,
   publicMode = false,
-}: Props) {
-  const [data, setData] = useState<EmployeeSlots[]>([]);
+}) => {
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [selected, setSelected] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
+  /* =========================
+     EFECTO: DISPONIBILIDAD
+  ========================= */
   useEffect(() => {
-    if (!serviceId || !dateISO) return;
+    if (!serviceId || !startISO) return;
 
     let cancelled = false;
-    setLoading(true);
-    setData([]);
 
-    // 1️⃣ obtener empleadas del servicio (sin hora)
-    apiFetch(
-      `/api/employees?serviceId=${serviceId}`,
+    setEmployees([]);
+    setSelected(null);
+    setError(null);
+    setLoading(true);
+
+    const url = `/api/appointments/availability?serviceId=${serviceId}&startISO=${encodeURIComponent(
+      startISO
+    )}`;
+
+    apiFetch<Employee[]>(
+      url,
       publicMode ? { public: true } : undefined
     )
-      .then(async (employees: Employee[]) => {
-        const results: EmployeeSlots[] = [];
-
-        for (const e of employees) {
-          const slots = await apiFetch<string[]>(
-            `/api/appointments/employee-day-availability?serviceId=${serviceId}&employeeId=${e.id}&dateISO=${dateISO}`,
-            publicMode ? { public: true } : undefined
-          );
-
-          if (slots.length) {
-            results.push({ employee: e, slots });
-          }
+      .then((res) => {
+        if (!cancelled) {
+          setEmployees(Array.isArray(res) ? res : []);
         }
-
-        if (!cancelled) setData(results);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setError('No hay empleados disponibles para este horario');
+        }
       })
       .finally(() => {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+        }
       });
 
     return () => {
       cancelled = true;
     };
-  }, [serviceId, dateISO, publicMode]);
+  }, [serviceId, startISO, publicMode]);
 
-  if (!serviceId || !dateISO) return null;
+  /* =========================
+     GUARD
+  ========================= */
+  if (!serviceId || !startISO) return null;
 
+  /* =========================
+     RENDER
+  ========================= */
   return (
-    <div className="mt-6 border-t border-black/10 pt-4 space-y-4">
+    <div className="mt-6 border-t border-black/10 pt-4 space-y-3">
       <h3 className="font-semibold text-sm md:text-base">
-        Horarios disponibles
+        Selecciona empleada
       </h3>
 
       {loading && (
-        <p className="text-sm opacity-60">Cargando horarios…</p>
-      )}
-
-      {!loading && data.length === 0 && (
-        <p className="text-sm text-red-600">
-          No hay horarios disponibles para este día
+        <p className="text-sm opacity-60">
+          Cargando disponibilidad…
         </p>
       )}
 
-      <div className="space-y-4">
-        {data.map(({ employee, slots }) => (
-          <div key={employee.id} className="space-y-2">
-            <p className="font-medium">{employee.name}</p>
+      {!loading && error && (
+        <p className="text-sm text-red-600">{error}</p>
+      )}
 
-            <div className="flex flex-wrap gap-2">
-              {slots.map((iso) => {
-                const label = DateTime
-                  .fromISO(iso, { zone: 'utc' })
-                  .setZone('America/Mexico_City')
-                  .toFormat('HH:mm');
+      {!loading && !error && employees.length === 0 && (
+        <p className="text-sm text-red-600">
+          No hay empleados disponibles para este horario
+        </p>
+      )}
 
-                return (
-                  <button
-                    key={iso}
-                    type="button"
-                    onClick={() => onSelect(employee.id, iso)}
-                    className="px-3 py-1 rounded border border-black/20 text-sm hover:bg-black hover:text-white transition"
-                  >
-                    {label}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
+      <div className="space-y-3">
+        {employees.map((e) => (
+          <button
+            key={e.id}
+            type="button"
+            onClick={() => {
+              setSelected(e.id);
+              onSelect(e.id);
+            }}
+            className={`w-full text-left rounded-lg px-4 py-3 transition border
+              ${
+                selected === e.id
+                  ? 'border-emerald-400 ring-2 ring-emerald-400/40 bg-emerald-500/10'
+                  : 'border-black/10 hover:border-black/30'
+              }`}
+          >
+            {e.name}
+          </button>
         ))}
       </div>
     </div>
   );
-}
+};
