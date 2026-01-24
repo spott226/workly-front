@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { DateTime } from 'luxon';
 import { apiFetch } from '@/lib/apiFetch';
 import { EmployeeTimeSelector } from './EmployeeTimeSelector';
@@ -12,7 +12,7 @@ type Employee = {
 
 type Props = {
   serviceId: string;
-  date: DateTime; // fecha del día seleccionado (sin hora)
+  date: DateTime; // día seleccionado (sin hora)
   onSelect: (employeeId: string, startISO: string) => void;
   publicMode?: boolean;
 };
@@ -26,84 +26,99 @@ export function EmployeeAvailability({
   const zone = 'America/Mexico_City';
 
   const [employees, setEmployees] = useState<Employee[]>([]);
-  const [slotsByEmployee, setSlotsByEmployee] = useState<
-    Record<string, DateTime[]>
-  >({});
-  const [loading, setLoading] = useState(true);
+  const [employeeId, setEmployeeId] = useState<string | null>(null);
+  const [slots, setSlots] = useState<DateTime[]>([]);
+  const [loading, setLoading] = useState(false);
 
+  // cargar empleadas
   useEffect(() => {
+    apiFetch<Employee[]>(
+      '/employees',
+      publicMode ? { public: true } : undefined
+    ).then(setEmployees);
+  }, [publicMode]);
+
+  // generar slots base (30 min)
+  const daySlots = useMemo(() => {
+    const start = date.setZone(zone).startOf('day');
+    const out: DateTime[] = [];
+    for (let h = 0; h < 24; h++) {
+      out.push(start.set({ hour: h, minute: 0 }));
+      out.push(start.set({ hour: h, minute: 30 }));
+    }
+    return out;
+  }, [date, zone]);
+
+  // validar slots SOLO para la empleada seleccionada
+  useEffect(() => {
+    if (!employeeId) {
+      setSlots([]);
+      return;
+    }
+
     async function load() {
       setLoading(true);
+      const valid: DateTime[] = [];
 
-      // 1) empleados
-      const emps = await apiFetch<Employee[]>(
-        '/employees',
-        publicMode ? { public: true } : undefined
-      );
-      setEmployees(emps);
+      for (const t of daySlots) {
+        try {
+          const res = await apiFetch<Employee[]>(
+            `/availability?serviceId=${serviceId}&startISO=${t
+              .setZone('utc')
+              .toISO()}`,
+            publicMode ? { public: true } : undefined
+          );
 
-      // 2) generar horas del día (cada 30 min)
-      const startDay = date.setZone(zone).startOf('day');
-      const slots: DateTime[] = [];
-      for (let h = 8; h < 20; h++) {
-        slots.push(startDay.set({ hour: h, minute: 0 }));
-        slots.push(startDay.set({ hour: h, minute: 30 }));
+          if (Array.isArray(res) && res.find(e => e.id === employeeId)) {
+            valid.push(t);
+          }
+        } catch {}
       }
 
-      // 3) validar cada hora contra backend (getAvailableEmployees)
-      const map: Record<string, DateTime[]> = {};
-      await Promise.all(
-        emps.map(async emp => {
-          const valid: DateTime[] = [];
-
-          for (const t of slots) {
-            try {
-              const res = await apiFetch<Employee[]>(
-                `/availability?serviceId=${serviceId}&startISO=${t
-                  .setZone('utc')
-                  .toISO()}`,
-                publicMode ? { public: true } : undefined
-              );
-
-              if (Array.isArray(res) && res.find(e => e.id === emp.id)) {
-                valid.push(t);
-              }
-            } catch {
-              // ignora
-            }
-          }
-
-          map[emp.id] = valid;
-        })
-      );
-
-      setSlotsByEmployee(map);
+      setSlots(valid);
       setLoading(false);
     }
 
     load();
-  }, [serviceId, date, publicMode]);
-
-  if (loading) {
-    return <p className="text-sm opacity-60">Cargando disponibilidad…</p>;
-  }
+  }, [employeeId, daySlots, serviceId, publicMode]);
 
   return (
     <div className="space-y-4">
-      {employees.map(emp => {
-        const slots = slotsByEmployee[emp.id] ?? [];
+      {/* elegir empleada */}
+      <div className="space-y-2">
+        <p className="font-semibold">Selecciona la empleada</p>
+        <div className="flex flex-wrap gap-2">
+          {employees.map(e => (
+            <button
+              key={e.id}
+              onClick={() => setEmployeeId(e.id)}
+              className={`px-3 py-1 rounded border ${
+                employeeId === e.id ? 'bg-black text-white' : ''
+              }`}
+            >
+              {e.name}
+            </button>
+          ))}
+        </div>
+      </div>
 
-        return (
-          <div key={emp.id} className="border rounded p-3">
-            <p className="font-medium mb-2">{emp.name}</p>
-
+      {/* horarios */}
+      {employeeId && (
+        <>
+          {loading ? (
+            <p className="text-sm opacity-60">Cargando horarios…</p>
+          ) : slots.length ? (
             <EmployeeTimeSelector
               slots={slots}
-              onSelect={iso => onSelect(emp.id, iso)}
+              onSelect={iso => onSelect(employeeId, iso)}
             />
-          </div>
-        );
-      })}
+          ) : (
+            <p className="text-sm text-red-500">
+              Esta empleada no tiene horarios disponibles
+            </p>
+          )}
+        </>
+      )}
     </div>
   );
 }
