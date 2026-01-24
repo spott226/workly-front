@@ -36,7 +36,9 @@ export function EmployeeAvailability({
   const [loadingSlots, setLoadingSlots] = useState(false);
 
   /* =========================
-     CARGAR EMPLEADAS (SOLO POR SERVICIO)
+     CARGAR EMPLEADAS
+     ❗ SOLO depende del servicio
+     ❗ LA FECHA NO AFECTA EMPLEADAS
   ========================= */
   useEffect(() => {
     if (publicMode && !slug) return;
@@ -75,10 +77,12 @@ export function EmployeeAvailability({
     return () => {
       cancelled = true;
     };
-  }, [serviceId, publicMode, slug]); // 👈 CLAVE: NO date
+  }, [serviceId, publicMode, slug]);
 
   /* =========================
-     CARGAR HORARIOS (DEPENDE DEL DÍA)
+     CARGAR HORARIOS
+     ❗ AQUÍ SÍ USA FECHA
+     ❗ BACKEND CALCULA TODO
   ========================= */
   async function loadSlotsForEmployee(employeeId: string) {
     setSelectedEmployeeId(employeeId);
@@ -97,9 +101,11 @@ export function EmployeeAvailability({
       );
 
       setSlots(
-        res.slots.map(iso =>
-          DateTime.fromISO(iso, { zone: 'utc' }).setZone(zone)
-        )
+        Array.isArray(res.slots)
+          ? res.slots.map(iso =>
+              DateTime.fromISO(iso, { zone: 'utc' }).setZone(zone)
+            )
+          : []
       );
     } catch {
       setSlots([]);
