@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { DateTime } from 'luxon';
 import { apiFetch } from '@/lib/apiFetch';
 
@@ -28,124 +28,143 @@ export function EmployeeAvailability({
 
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [activeEmployee, setActiveEmployee] = useState<string | null>(null);
-  const [slotsByEmployee, setSlotsByEmployee] = useState<Record<string, DateTime[]>>({});
-  const [selectedISO, setSelectedISO] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [slots, setSlots] = useState<DateTime[]>([]);
+  const [loadingEmployees, setLoadingEmployees] = useState(true);
+  const [loadingSlots, setLoadingSlots] = useState(false);
 
+  // cache simple en memoria
+  const cacheRef = useRef<
+    Map<string, DateTime[]>
+  >(new Map());
+
+  /* =========================
+     CARGAR EMPLEADOS (1 request)
+  ========================= */
   useEffect(() => {
-    async function load() {
-      setLoading(true);
+    async function loadEmployees() {
+      setLoadingEmployees(true);
       setActiveEmployee(null);
-      setSelectedISO(null);
-      setSlotsByEmployee({});
+      setSlots([]);
 
       const emps = await apiFetch<Employee[]>(
-        '/employees',
+        `/employees?serviceId=${serviceId}`,
         publicMode ? { public: true } : undefined
       );
 
-      const startDay = date.setZone(zone).startOf('day');
-      const generated: DateTime[] = [];
-
-      for (let h = 8; h < 20; h++) {
-        generated.push(startDay.set({ hour: h, minute: 0 }));
-        generated.push(startDay.set({ hour: h, minute: 30 }));
-      }
-
-      const map: Record<string, DateTime[]> = {};
-
-      for (const emp of emps) {
-        const valid: DateTime[] = [];
-
-        for (const t of generated) {
-          try {
-            const res = await apiFetch<Employee[]>(
-              `/appointments/availability?serviceId=${serviceId}&startISO=${t
-                .setZone('utc')
-                .toISO()}`,
-              publicMode ? { public: true } : undefined
-            );
-
-            if (Array.isArray(res) && res.some(e => e.id === emp.id)) {
-              valid.push(t);
-            }
-          } catch {}
-        }
-
-        // 🔥 SOLO SE AGREGA SI TIENE HORARIOS
-        if (valid.length > 0) {
-          map[emp.id] = valid;
-        }
-      }
-
-      // 🔥 FILTRAMOS EMPLEADAS SIN SERVICIO
-      setEmployees(emps.filter(e => map[e.id]?.length));
-      setSlotsByEmployee(map);
-      setLoading(false);
+      setEmployees(Array.isArray(emps) ? emps : []);
+      setLoadingEmployees(false);
     }
 
-    load();
+    loadEmployees();
   }, [serviceId, date, publicMode]);
 
-  if (loading) {
-    return <p className="text-sm opacity-60">Cargando disponibilidad…</p>;
+  /* =========================
+     CARGAR HORARIOS (solo al click)
+  ========================= */
+  async function loadSlots(employeeId: string) {
+    setActiveEmployee(employeeId);
+    setLoadingSlots(true);
+    setSlots([]);
+
+    const cacheKey = `${serviceId}-${employeeId}-${date.toISODate()}`;
+    const cached = cacheRef.current.get(cacheKey);
+
+    if (cached) {
+      setSlots(cached);
+      setLoadingSlots(false);
+      return;
+    }
+
+    const startDay = date.setZone(zone).startOf('day');
+    const hours: DateTime[] = [];
+
+    for (let h = 8; h < 20; h++) {
+      hours.push(startDay.set({ hour: h, minute: 0 }));
+      hours.push(startDay.set({ hour: h, minute: 30 }));
+    }
+
+    // ⚡ requests en paralelo
+    const results = await Promise.all(
+      hours.map(async (t) => {
+        try {
+          const res = await apiFetch<Employee[]>(
+            `/appointments/availability?serviceId=${serviceId}&startISO=${t
+              .setZone('utc')
+              .toISO()}`,
+            publicMode ? { public: true } : undefined
+          );
+
+          return Array.isArray(res) && res.some(e => e.id === employeeId)
+            ? t
+            : null;
+        } catch {
+          return null;
+        }
+      })
+    );
+
+    const validSlots = results.filter(Boolean) as DateTime[];
+    cacheRef.current.set(cacheKey, validSlots);
+
+    setSlots(validSlots);
+    setLoadingSlots(false);
+  }
+
+  if (loadingEmployees) {
+    return <p className="text-sm opacity-60">Cargando empleadas…</p>;
   }
 
   return (
     <div className="space-y-4">
       {employees.map(emp => {
-        const slots = slotsByEmployee[emp.id] || [];
         const label =
           emp.name ??
           `${emp.first_name ?? ''} ${emp.last_name ?? ''}`.trim();
 
-        const isActive = activeEmployee === emp.id;
+        const active = emp.id === activeEmployee;
 
         return (
           <div key={emp.id} className="border rounded-lg p-3">
             {/* EMPLEADA */}
             <button
               type="button"
-              onClick={() => {
-                setActiveEmployee(emp.id);
-                setSelectedISO(null);
-              }}
-              className={`w-full text-left px-4 py-3 rounded-lg font-medium transition
+              onClick={() => loadSlots(emp.id)}
+              className={`w-full text-left rounded-md px-4 py-3 font-medium transition
                 ${
-                  isActive
-                    ? 'border border-emerald-400 bg-emerald-500/10'
-                    : 'border border-black/10 hover:border-black/30'
+                  active
+                    ? 'bg-emerald-500/15 border border-emerald-400'
+                    : 'bg-white hover:bg-gray-100'
                 }`}
             >
               {label}
             </button>
 
             {/* HORARIOS */}
-            {isActive && (
-              <div className="mt-4 grid grid-cols-3 sm:grid-cols-4 gap-2">
-                {slots.map(t => {
-                  const iso = t.setZone('utc').toISO()!;
-                  const selected = selectedISO === iso;
-
-                  return (
-                    <button
-                      key={iso}
-                      type="button"
-                      onClick={() => {
-                        setSelectedISO(iso);
-                        onSelect(emp.id, iso);
-                      }}
-                      className={`px-3 py-2 rounded border text-sm transition
-                        ${
-                          selected
-                            ? 'bg-emerald-500 text-white border-emerald-500'
-                            : 'bg-white hover:bg-emerald-50 border-black/20'
-                        }`}
-                    >
-                      {t.toFormat('HH:mm')}
-                    </button>
-                  );
-                })}
+            {active && (
+              <div className="mt-3">
+                {loadingSlots ? (
+                  <p className="text-sm opacity-60">Cargando horarios…</p>
+                ) : slots.length === 0 ? (
+                  <p className="text-sm text-red-500">
+                    Esta empleada no tiene horarios disponibles
+                  </p>
+                ) : (
+                  <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                    {slots.map(t => {
+                      const iso = t.setZone('utc').toISO()!;
+                      return (
+                        <button
+                          key={iso}
+                          type="button"
+                          onClick={() => onSelect(emp.id, iso)}
+                          className="rounded-md px-3 py-2 text-sm border bg-emerald-500/10 border-emerald-400 hover:bg-emerald-500/20"
+                        >
+                          {t.toFormat('HH:mm')}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             )}
           </div>
