@@ -6,6 +6,9 @@ import { Appointment } from '@/lib/appointments';
 
 const ZONE = 'America/Mexico_City';
 
+/* =========================
+   TYPES
+========================= */
 type Employee = {
   id: string;
   name: string;
@@ -23,9 +26,24 @@ type Props = {
   appointments: Appointment[];
   date: DateTime;
   period: Period;
-  business: Business | null;
+  business: Business;
 };
 
+/* =========================
+   HELPERS
+========================= */
+function normalizeName(name: string) {
+  return name
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/* =========================
+   COMPONENT
+========================= */
 export function StaffAvailabilityBoard({
   employee,
   appointments,
@@ -33,52 +51,97 @@ export function StaffAvailabilityBoard({
   period,
   business,
 }: Props) {
+  /* =========================
+     BUSINESS HOURS
+  ========================= */
   const hours = useMemo(() => {
-    if (!business?.opening_time || !business?.closing_time) return [];
+    if (!business.opening_time || !business.closing_time) return [];
 
-    const [openH] = business.opening_time.split(':').map(Number);
-    const [closeH] = business.closing_time.split(':').map(Number);
+    const [openH, openM] = business.opening_time.split(':').map(Number);
+    const [closeH, closeM] = business.closing_time.split(':').map(Number);
 
     const slots: DateTime[] = [];
 
-    for (let h = openH; h < closeH; h++) {
-      slots.push(date.set({ hour: h, minute: 0 }));
-      slots.push(date.set({ hour: h, minute: 30 }));
+    let cursor = date
+      .setZone(ZONE)
+      .set({ hour: openH, minute: openM, second: 0 });
+
+    const end = date
+      .setZone(ZONE)
+      .set({ hour: closeH, minute: closeM, second: 0 });
+
+    while (cursor < end) {
+      slots.push(cursor);
+      cursor = cursor.plus({ minutes: 30 });
     }
 
     return slots;
   }, [business, date]);
 
+  /* =========================
+     FILTER APPOINTMENTS (PERIOD)
+  ========================= */
   const scopedAppointments = useMemo(() => {
     return appointments.filter(a => {
-      if (a.employee_id !== employee.id) return false;
+      const d = DateTime
+        .fromISO(a.starts_at, { zone: 'utc' })
+        .setZone(ZONE);
 
-      const d = DateTime.fromISO(a.starts_at, { zone: 'utc' }).setZone(ZONE);
+      if (period === 'day') {
+        return d.hasSame(date, 'day');
+      }
 
-      if (period === 'month') return d.hasSame(date, 'month');
-      if (period === 'week')
-        return d >= date.startOf('week') && d <= date.endOf('week');
+      if (period === 'week') {
+        return (
+          d >= date.startOf('week') &&
+          d <= date.endOf('week')
+        );
+      }
 
-      return d.hasSame(date, 'day');
+      return d.hasSame(date, 'month');
     });
-  }, [appointments, employee, period, date]);
+  }, [appointments, period, date]);
 
+  /* =========================
+     SLOT STATUS
+  ========================= */
   function isOccupied(slot: DateTime) {
     return scopedAppointments.some(a => {
-      const start = DateTime.fromISO(a.starts_at, { zone: 'utc' }).setZone(ZONE);
-      const end = DateTime.fromISO(a.ends_at, { zone: 'utc' }).setZone(ZONE);
+      if (
+        !a.employee_name ||
+        normalizeName(a.employee_name) !==
+          normalizeName(employee.name)
+      ) {
+        return false;
+      }
+
+      const start = DateTime
+        .fromISO(a.starts_at, { zone: 'utc' })
+        .setZone(ZONE);
+
+      const end = DateTime
+        .fromISO(a.ends_at, { zone: 'utc' })
+        .setZone(ZONE);
+
       return slot >= start && slot < end;
     });
   }
 
+  /* =========================
+     RENDER
+  ========================= */
   return (
-    <div className="border rounded-lg overflow-x-auto mt-6">
-      <div className="grid grid-cols-[90px_1fr]">
-        <div className="border-b p-2 font-medium">Hora</div>
+    <div className="border rounded overflow-x-auto">
+      <div className="grid grid-cols-[100px_1fr]">
+        {/* HEADER */}
+        <div className="border-b p-2 font-medium">
+          Hora
+        </div>
         <div className="border-b p-2 font-medium text-center">
           {employee.name}
         </div>
 
+        {/* SLOTS */}
         {hours.map(slot => {
           const busy = isOccupied(slot);
 
@@ -89,8 +152,10 @@ export function StaffAvailabilityBoard({
               </div>
 
               <div
-                className={`border-t h-8 ${
-                  busy ? 'bg-blue-500/70' : 'bg-emerald-400/50'
+                className={`border-t h-8 transition ${
+                  busy
+                    ? 'bg-blue-500/80'
+                    : 'bg-emerald-400/70'
                 }`}
               />
             </Fragment>

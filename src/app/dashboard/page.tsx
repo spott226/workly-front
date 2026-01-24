@@ -159,15 +159,16 @@ export default function DashboardPage() {
 />
 
 
-      {selectedEmployee && (
-        <StaffAvailabilityBoard
-          employee={selectedEmployee}
-          appointments={appointments}
-          date={date}
-          period={period}
-          business={businessHours}
-        />
-      )}
+      {selectedEmployee && businessHours && (
+  <StaffAvailabilityBoard
+    employee={selectedEmployee}
+    appointments={appointments}
+    date={date}
+    period={period}
+    business={businessHours}
+  />
+)}
+
     </DashboardLayout>
   );
 }
