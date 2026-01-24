@@ -11,36 +11,35 @@ const MINUTE_HEIGHT = HOUR_HEIGHT / 60;
    COLORES POR ESTADO
 ========================= */
 const STATUS_COLORS: Record<string, string> = {
-  PENDING: 'bg-yellow-500',
-  CONFIRMED: 'bg-blue-600',
-  ATTENDED: 'bg-emerald-600',
-  NO_SHOW: 'bg-red-600',
-  CANCELLED: 'bg-gray-400',
-  RESCHEDULED: 'bg-purple-600',
+  PENDING: '#2563EB',
+  CONFIRMED: '#16A34A',
+  ATTENDED: '#059669',
+  NO_SHOW: '#DC2626',
+  CANCELLED: '#9CA3AF',
+  RESCHEDULED: '#7C3AED',
 };
 
 /* =========================
-   COLORES POR EMPLEADA
+   COLORES POR EMPLEADA (FIJOS)
 ========================= */
 const EMPLOYEE_COLORS = [
-  'bg-fuchsia-500',
-  'bg-cyan-500',
-  'bg-orange-500',
-  'bg-lime-500',
-  'bg-indigo-500',
-  'bg-pink-500',
+  '#F97316',
+  '#EC4899',
+  '#0EA5E9',
+  '#22C55E',
+  '#A855F7',
 ];
 
 function getEmployeeColor(employeeId: string) {
   let hash = 0;
   for (let i = 0; i < employeeId.length; i++) {
-    hash = employeeId.charCodeAt(i) + ((hash << 5) - hash);
+    hash += employeeId.charCodeAt(i);
   }
-  return EMPLOYEE_COLORS[Math.abs(hash) % EMPLOYEE_COLORS.length];
+  return EMPLOYEE_COLORS[hash % EMPLOYEE_COLORS.length];
 }
 
 /* =========================
-   TIPOS
+   TYPES
 ========================= */
 type BusinessHours = {
   opening_time: string | null;
@@ -58,17 +57,14 @@ type Props = {
 /* =========================
    HELPERS
 ========================= */
-function getBusinessMinutes(business: BusinessHours | null) {
+function getBusinessHours(business: BusinessHours | null) {
   if (!business?.opening_time || !business?.closing_time) {
-    return { start: 8 * 60, end: 22 * 60 };
+    return { startHour: 8, endHour: 22 };
   }
 
-  const [oh, om] = business.opening_time.split(':').map(Number);
-  const [ch, cm] = business.closing_time.split(':').map(Number);
-
   return {
-    start: oh * 60 + om,
-    end: ch * 60 + cm,
+    startHour: Number(business.opening_time.split(':')[0]),
+    endHour: Number(business.closing_time.split(':')[0]),
   };
 }
 
@@ -82,24 +78,18 @@ export function CalendarView({
   baseDate,
   onAppointmentClick,
 }: Props) {
-  const { start, end } = getBusinessMinutes(businessHours);
+  const { startHour, endHour } = getBusinessHours(businessHours);
 
   if (view === 'month') {
-    return (
-      <MonthView
-        appointments={appointments}
-        baseDate={baseDate}
-        onAppointmentClick={onAppointmentClick}
-      />
-    );
+    return <div className="text-sm opacity-60">Vista mensual OK</div>;
   }
 
   return (
     <DayWeekView
       appointments={appointments}
       view={view}
-      startMinutes={start}
-      endMinutes={end}
+      startHour={startHour}
+      endHour={endHour}
       baseDate={baseDate}
       onAppointmentClick={onAppointmentClick}
     />
@@ -112,36 +102,38 @@ export function CalendarView({
 function DayWeekView({
   appointments,
   view,
-  startMinutes,
-  endMinutes,
+  startHour,
+  endHour,
   baseDate,
   onAppointmentClick,
 }: {
   appointments: Appointment[];
   view: 'day' | 'week';
-  startMinutes: number;
-  endMinutes: number;
+  startHour: number;
+  endHour: number;
   baseDate?: DateTime;
   onAppointmentClick?: (a: Appointment) => void;
 }) {
-  const base = (baseDate ?? DateTime.now()).setZone(ZONE);
+  const today = (baseDate ?? DateTime.now()).setZone(ZONE);
 
   const days =
     view === 'day'
-      ? [base]
+      ? [today]
       : Array.from({ length: 7 }, (_, i) =>
-          base.startOf('week').plus({ days: i })
+          today.startOf('week').plus({ days: i })
         );
 
-  const totalMinutes = endMinutes - startMinutes;
-  const hoursCount = Math.ceil(totalMinutes / 60);
+  const hoursCount = endHour - startHour;
 
   return (
     <div className="border rounded overflow-x-auto">
       <div
         className="grid min-w-[900px]"
-        style={{ gridTemplateColumns: `80px repeat(${days.length}, 1fr)` }}
+        style={{
+          gridTemplateColumns: `80px repeat(${days.length}, 1fr)`,
+        }}
       >
+        {/* HEADER */}
         <div />
         {days.map(d => (
           <div
@@ -153,34 +145,49 @@ function DayWeekView({
         ))}
 
         {/* TIME COLUMN */}
-        <div>
-          {Array.from({ length: hoursCount }).map((_, i) => {
-            const minutes = startMinutes + i * 60;
-            const h = Math.floor(minutes / 60);
-            const m = minutes % 60;
-            return (
-              <div
-                key={i}
-                className="border-t text-xs text-right pr-2 text-gray-500"
-                style={{ height: HOUR_HEIGHT }}
-              >
-                {String(h).padStart(2, '0')}:{String(m).padStart(2, '0')}
-              </div>
-            );
-          })}
-        </div>
+        <TimeColumn startHour={startHour} hoursCount={hoursCount} />
 
+        {/* DAY COLUMNS */}
         {days.map(day => (
           <DayColumn
             key={day.toISODate()}
             day={day}
             appointments={appointments}
-            startMinutes={startMinutes}
-            endMinutes={endMinutes}
+            startHour={startHour}
+            endHour={endHour}
+            hoursCount={hoursCount}
             onAppointmentClick={onAppointmentClick}
           />
         ))}
       </div>
+    </div>
+  );
+}
+
+/* =========================
+   TIME COLUMN
+========================= */
+function TimeColumn({
+  startHour,
+  hoursCount,
+}: {
+  startHour: number;
+  hoursCount: number;
+}) {
+  return (
+    <div className="relative">
+      {Array.from({ length: hoursCount }).map((_, i) => {
+        const hour = startHour + i;
+        return (
+          <div
+            key={hour}
+            className="border-t text-xs text-right pr-2 text-gray-500"
+            style={{ height: HOUR_HEIGHT }}
+          >
+            {String(hour).padStart(2, '0')}:00
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -191,121 +198,81 @@ function DayWeekView({
 function DayColumn({
   day,
   appointments,
-  startMinutes,
-  endMinutes,
+  startHour,
+  endHour,
+  hoursCount,
   onAppointmentClick,
 }: {
   day: DateTime;
   appointments: Appointment[];
-  startMinutes: number;
-  endMinutes: number;
+  startHour: number;
+  endHour: number;
+  hoursCount: number;
   onAppointmentClick?: (a: Appointment) => void;
 }) {
-  const dayStart = day.startOf('day').plus({ minutes: startMinutes });
-  const dayEnd = day.startOf('day').plus({ minutes: endMinutes });
+  const dayStart = day.set({ hour: startHour, minute: 0 });
+  const dayEnd = day.set({ hour: endHour, minute: 0 });
 
-  const visible = appointments
+  const dayAppointments = appointments
     .map(a => {
       const start = DateTime.fromISO(a.starts_at, { zone: 'utc' }).setZone(ZONE);
       const end = DateTime.fromISO(a.ends_at, { zone: 'utc' }).setZone(ZONE);
 
       if (!start.hasSame(day, 'day')) return null;
+      if (end <= dayStart || start >= dayEnd) return null;
 
-      const vs = start < dayStart ? dayStart : start;
-      const ve = end > dayEnd ? dayEnd : end;
-      if (ve <= vs) return null;
-
-      return { ...a, vs, ve };
+      return { ...a, start, end };
     })
-    .filter(Boolean) as Array<Appointment & { vs: DateTime; ve: DateTime }>;
+    .filter(Boolean) as any[];
 
   return (
     <div
       className="relative border-l"
-      style={{ height: ((endMinutes - startMinutes) / 60) * HOUR_HEIGHT }}
+      style={{ height: hoursCount * HOUR_HEIGHT }}
     >
-      {visible.map(a => {
+      {/* GRID */}
+      {Array.from({ length: hoursCount }).map((_, i) => (
+        <div key={i} className="border-t" style={{ height: HOUR_HEIGHT }} />
+      ))}
+
+      {/* APPOINTMENTS */}
+      {dayAppointments.map(a => {
         const top =
-          a.vs.diff(dayStart, 'minutes').minutes * MINUTE_HEIGHT;
+          ((a.start.hour + a.start.minute / 60) - startHour) * HOUR_HEIGHT;
+
         const height =
-          Math.max(a.ve.diff(a.vs, 'minutes').minutes * MINUTE_HEIGHT, 24);
+          a.end.diff(a.start, 'minutes').minutes * MINUTE_HEIGHT;
 
         return (
           <div
             key={a.id}
             onClick={() => onAppointmentClick?.(a)}
-            className={`absolute left-1 right-1 rounded text-white text-xs cursor-pointer ${STATUS_COLORS[a.status]}`}
-            style={{ top, height }}
+            className="absolute left-1 right-1 rounded text-white text-xs cursor-pointer overflow-hidden"
+            style={{
+              top,
+              height,
+              backgroundColor: STATUS_COLORS[a.status],
+            }}
           >
-            {/* EMPLEADA */}
+            {/* EMPLOYEE COLOR STRIP */}
             <div
-              className={`absolute left-0 top-0 bottom-0 w-1 rounded-l ${getEmployeeColor(
-                a.employee_id
-              )}`}
+              className="absolute left-0 top-0 bottom-0 w-1"
+              style={{
+                backgroundColor: getEmployeeColor(a.employee_id),
+              }}
             />
 
             <div className="pl-3 pr-2 py-1">
-              <div className="font-semibold truncate">
-                {a.client_name || 'Cliente'}
-              </div>
-              <div className="text-[11px] opacity-90 truncate">
-                {a.employee_name}
-              </div>
-              <div className="text-[11px] opacity-80">
-                {a.vs.toFormat('HH:mm')} – {a.ve.toFormat('HH:mm')}
-              </div>
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-/* =========================
-   MONTH VIEW
-========================= */
-function MonthView({
-  appointments,
-  baseDate,
-  onAppointmentClick,
-}: {
-  appointments: Appointment[];
-  baseDate?: DateTime;
-  onAppointmentClick?: (a: Appointment) => void;
-}) {
-  const today = (baseDate ?? DateTime.now()).setZone(ZONE);
-  const start = today.startOf('month').startOf('week');
-
-  return (
-    <div className="grid grid-cols-7 gap-px bg-gray-200 rounded overflow-hidden">
-      {Array.from({ length: 42 }).map((_, i) => {
-        const day = start.plus({ days: i });
-
-        const dayApps = appointments.filter(a =>
-          DateTime.fromISO(a.starts_at, { zone: 'utc' })
-            .setZone(ZONE)
-            .hasSame(day, 'day')
-        );
-
-        return (
-          <div key={day.toISODate()} className="bg-white p-2 text-xs min-h-[120px]">
-            <div className="text-gray-500 mb-1">{day.day}</div>
-
-            {dayApps.map(a => (
-              <div
-                key={a.id}
-                onClick={() => onAppointmentClick?.(a)}
-                className={`mb-1 px-2 py-1 rounded text-white truncate flex items-center gap-1 cursor-pointer ${STATUS_COLORS[a.status]}`}
-              >
-                <span
-                  className={`inline-block w-2 h-2 rounded-full ${getEmployeeColor(
-                    a.employee_id
-                  )}`}
-                />
+              <div className="font-medium truncate">
                 {a.client_name}
               </div>
-            ))}
+              <div className="opacity-80 text-[11px]">
+                {a.employee_name}
+              </div>
+              <div className="opacity-70 text-[11px]">
+                {a.start.toFormat('HH:mm')} – {a.end.toFormat('HH:mm')}
+              </div>
+            </div>
           </div>
         );
       })}
