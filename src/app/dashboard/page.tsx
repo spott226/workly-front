@@ -138,7 +138,7 @@ export default function DashboardPage() {
     <DashboardLayout>
       {/* HEADER */}
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Agenda por empleada</h1>
+        <h1 className="text-2xl font-bold">Agenda por persona asignada</h1>
 
         <button
           onClick={() => router.push('/appointments/new')}
