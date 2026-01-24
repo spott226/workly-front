@@ -5,7 +5,7 @@ import { DateTime } from 'luxon';
 import { useRouter } from 'next/navigation';
 
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
-import { StaffCalendarsView } from '@/components/calendar/StaffCalendarsView';
+import { CalendarView } from '@/components/calendar/CalendarView';
 import { AppointmentModal } from '@/components/appointments/AppointmentModal';
 
 import { Appointment, getAppointments } from '@/lib/appointments';
@@ -36,6 +36,9 @@ export default function DashboardPage() {
 
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
+  const [selectedEmployeeId, setSelectedEmployeeId] =
+    useState<string | null>(null);
+
   const [businessHours, setBusinessHours] =
     useState<BusinessHours | null>(null);
 
@@ -70,6 +73,11 @@ export default function DashboardPage() {
 
     setEmployees(employeesData);
 
+    // por default selecciona la primera empleada
+    if (employeesData.length && !selectedEmployeeId) {
+      setSelectedEmployeeId(employeesData[0].id);
+    }
+
     setLoading(false);
   }
 
@@ -78,7 +86,7 @@ export default function DashboardPage() {
   }, []);
 
   /* =========================
-     FILTRO ORIGINAL (CLAVE)
+     FILTRO FECHA (TU LÓGICA)
   ========================= */
   const filteredAppointments = useMemo(() => {
     return appointments.filter(a => {
@@ -91,6 +99,16 @@ export default function DashboardPage() {
       return d.hasSame(date, 'day');
     });
   }, [appointments, period, date]);
+
+  /* =========================
+     FILTRO EMPLEADA
+  ========================= */
+  const employeeAppointments = useMemo(() => {
+    if (!selectedEmployeeId) return [];
+    return filteredAppointments.filter(
+      a => a.employee_id === selectedEmployeeId
+    );
+  }, [filteredAppointments, selectedEmployeeId]);
 
   function moveDate(step: number) {
     if (period === 'day') setDate(d => d.plus({ days: step }));
@@ -120,8 +138,9 @@ export default function DashboardPage() {
         </button>
       </div>
 
-      {/* CONTROLES */}
+      {/* CONTROLES SUPERIORES */}
       <div className="flex flex-wrap items-center gap-3 mb-4">
+        {/* PERIODO */}
         {(['day', 'week', 'month'] as Period[]).map(p => (
           <button
             key={p}
@@ -136,6 +155,20 @@ export default function DashboardPage() {
           </button>
         ))}
 
+        {/* SELECT EMPLEADA */}
+        <select
+          value={selectedEmployeeId ?? ''}
+          onChange={e => setSelectedEmployeeId(e.target.value)}
+          className="ml-4 px-3 py-2 border rounded"
+        >
+          {employees.map(e => (
+            <option key={e.id} value={e.id}>
+              {e.name}
+            </option>
+          ))}
+        </select>
+
+        {/* FECHA */}
         <div className="ml-auto flex items-center gap-3">
           <button onClick={() => moveDate(-1)}>←</button>
           <span className="font-medium">
@@ -145,14 +178,16 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* CALENDARIOS POR EMPLEADA */}
-      <StaffCalendarsView
-        employees={employees}
-        appointments={filteredAppointments}
-        period={period}
-        businessHours={businessHours}
-        onAppointmentClick={setSelectedAppointment}
-      />
+      {/* CALENDARIO (UNO SOLO) */}
+      <CalendarView
+  key={`${selectedEmployeeId}-${date.toISO()}`}
+  appointments={employeeAppointments}
+  view={period}
+  businessHours={businessHours}
+  baseDate={date}
+  onAppointmentClick={(a) => setSelectedAppointment(a)}
+/>
+
 
       {/* MODAL */}
       {selectedAppointment && (

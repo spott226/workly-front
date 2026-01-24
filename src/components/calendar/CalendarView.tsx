@@ -28,6 +28,7 @@ type Props = {
   appointments: Appointment[];
   view: 'day' | 'week' | 'month';
   businessHours: BusinessHours | null;
+  baseDate?: DateTime; // 🔥 FECHA CONTROLADA DESDE AFUERA
   onAppointmentClick?: (a: Appointment) => void;
 };
 
@@ -52,6 +53,7 @@ export function CalendarView({
   appointments,
   view,
   businessHours,
+  baseDate,
   onAppointmentClick,
 }: Props) {
   const { start, end } = getBusinessHours(businessHours);
@@ -60,6 +62,7 @@ export function CalendarView({
     return (
       <MonthView
         appointments={appointments}
+        baseDate={baseDate}
         onAppointmentClick={onAppointmentClick}
       />
     );
@@ -71,6 +74,7 @@ export function CalendarView({
       view={view}
       startHour={start}
       endHour={end}
+      baseDate={baseDate}
       onAppointmentClick={onAppointmentClick}
     />
   );
@@ -84,15 +88,18 @@ function DayWeekView({
   view,
   startHour,
   endHour,
+  baseDate,
   onAppointmentClick,
 }: {
   appointments: Appointment[];
   view: 'day' | 'week';
   startHour: number;
   endHour: number;
+  baseDate?: DateTime;
   onAppointmentClick?: (a: Appointment) => void;
 }) {
-  const today = DateTime.now().setZone(ZONE);
+  const today = (baseDate ?? DateTime.now()).setZone(ZONE);
+
   const days =
     view === 'day'
       ? [today]
@@ -194,7 +201,6 @@ function DayColumn({
 
       if (!start.hasSame(day, 'day')) return null;
 
-      // 🔒 CLAMP AL HORARIO DEL NEGOCIO
       const visibleStart = start < dayStart ? dayStart : start;
       const visibleEnd = end > dayEnd ? dayEnd : end;
 
@@ -253,12 +259,14 @@ function DayColumn({
 ========================= */
 function MonthView({
   appointments,
+  baseDate,
   onAppointmentClick,
 }: {
   appointments: Appointment[];
+  baseDate?: DateTime;
   onAppointmentClick?: (a: Appointment) => void;
 }) {
-  const today = DateTime.now().setZone(ZONE);
+  const today = (baseDate ?? DateTime.now()).setZone(ZONE);
   const start = today.startOf('month').startOf('week');
 
   return (
