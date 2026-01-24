@@ -13,15 +13,25 @@ import { apiFetch } from '@/lib/apiFetch';
 import { BUSINESS_THEMES } from '@/styles/businessThemes';
 import { FONT_PRESETS } from '@/styles/fontPresets';
 
+/* =========================
+   TIPOS
+========================= */
 type Props = { slug: string };
 
 type Draft = {
   serviceId: string | null;
-  dateISO: string | null;       // YYYY-MM-DD
+  dateISO: string | null;   // YYYY-MM-DD
+  startISO: string | null;  // fecha + hora
   employeeId: string | null;
-  startISO: string | null;      // fecha + hora final
   clientName: string;
   phone: string;
+};
+
+type Employee = {
+  id: string;
+  name?: string;
+  first_name?: string;
+  last_name?: string;
 };
 
 type PublicBusiness = {
@@ -44,11 +54,14 @@ export default function BusinessPublicClient({ slug }: Props) {
   const [draft, setDraft] = useState<Draft>({
     serviceId: null,
     dateISO: null,
-    employeeId: null,
     startISO: null,
+    employeeId: null,
     clientName: '',
     phone: '',
   });
+
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [loadingEmployees, setLoadingEmployees] = useState(false);
 
   const [business, setBusiness] = useState<PublicBusiness | null>(null);
   const [loading, setLoading] = useState(false);
@@ -58,11 +71,14 @@ export default function BusinessPublicClient({ slug }: Props) {
   const canSubmit =
     !!draft.serviceId &&
     !!draft.dateISO &&
-    !!draft.employeeId &&
     !!draft.startISO &&
+    !!draft.employeeId &&
     draft.clientName.trim().length > 0 &&
     draft.phone.trim().length > 0;
 
+  /* =========================
+     CREAR CITA
+  ========================= */
   async function handleSubmit() {
     if (loading || !canSubmit) return;
 
@@ -89,6 +105,78 @@ export default function BusinessPublicClient({ slug }: Props) {
     } finally {
       setLoading(false);
     }
+  }
+
+  /* =========================
+     CARGAR EMPLEADOS DISPONIBLES
+     (USA TU BACKEND EXISTENTE)
+  ========================= */
+  async function loadEmployees(startISO: string) {
+    setLoadingEmployees(true);
+    setEmployees([]);
+
+    try {
+      const res = await apiFetch<Employee[]>(
+        `/employees/available?slug=${slug}&serviceId=${draft.serviceId}&startISO=${encodeURIComponent(startISO)}`,
+        { public: true }
+      );
+
+      setEmployees(Array.isArray(res) ? res : []);
+    } catch {
+      setEmployees([]);
+    } finally {
+      setLoadingEmployees(false);
+    }
+  }
+
+  /* =========================
+     TIME PICKER SIMPLE
+     (COMO ANTES)
+  ========================= */
+  function TimePicker() {
+    if (!draft.dateISO) return null;
+
+    const start = DateTime.fromISO(draft.dateISO, { zone }).set({
+      hour: 9,
+      minute: 0,
+    });
+
+    const end = DateTime.fromISO(draft.dateISO, { zone }).set({
+      hour: 19,
+      minute: 0,
+    });
+
+    const times: DateTime[] = [];
+    let cursor = start;
+
+    while (cursor <= end) {
+      times.push(cursor);
+      cursor = cursor.plus({ minutes: 30 });
+    }
+
+    return (
+      <div className="grid grid-cols-3 gap-2">
+        {times.map(t => {
+          const iso = t.toUTC().toISO()!;
+          return (
+            <button
+              key={iso}
+              className="border rounded px-3 py-2 hover:bg-gray-50"
+              onClick={() => {
+                setDraft(d => ({
+                  ...d,
+                  startISO: iso,
+                  employeeId: null,
+                }));
+                loadEmployees(iso);
+              }}
+            >
+              {t.toFormat('HH:mm')}
+            </button>
+          );
+        })}
+      </div>
+    );
   }
 
   if (confirmed) {
@@ -119,22 +207,15 @@ export default function BusinessPublicClient({ slug }: Props) {
         </div>
 
         {business && (
-          <div className="animate-[fadeUp_0.6s_ease-out]">
-            <h1 className="text-4xl md:text-5xl font-semibold">
+          <div>
+            <h1 className="text-4xl font-semibold">
               {business.public_title}
             </h1>
-
-            {business.public_description && (
-              <p className="mt-4 text-lg opacity-80 max-w-2xl mx-auto">
-                {business.public_description}
-              </p>
-            )}
-
             <button
               onClick={() =>
                 bookingRef.current?.scrollIntoView({ behavior: 'smooth' })
               }
-              className={`mt-10 px-10 py-4 rounded-full text-lg transition ${theme.button}`}
+              className={`mt-8 px-8 py-4 rounded-full ${theme.button}`}
             >
               {business.cta_text || 'Reservar ahora'}
             </button>
@@ -146,34 +227,36 @@ export default function BusinessPublicClient({ slug }: Props) {
         ref={bookingRef}
         className="max-w-xl mx-auto px-4 py-10 space-y-6"
       >
+        {/* SERVICIO */}
         <div className={theme.card}>
           <ServiceSelector
             slug={slug}
             publicMode
-            onSelect={(serviceId) =>
-              setDraft(d => ({
-                ...d,
+            onSelect={serviceId =>
+              setDraft({
                 serviceId,
                 dateISO: null,
-                employeeId: null,
                 startISO: null,
-              }))
+                employeeId: null,
+                clientName: '',
+                phone: '',
+              })
             }
           />
         </div>
 
+        {/* FECHA */}
         {draft.serviceId && (
           <div className={theme.card}>
-            <h3 className="font-semibold mb-2">Selecciona la fecha</h3>
             <input
               type="date"
               min={minDateISO ?? undefined}
-              onChange={(e) =>
+              onChange={e =>
                 setDraft(d => ({
                   ...d,
                   dateISO: e.target.value,
-                  employeeId: null,
                   startISO: null,
+                  employeeId: null,
                 }))
               }
               className="w-full px-3 py-2 border rounded"
@@ -181,12 +264,44 @@ export default function BusinessPublicClient({ slug }: Props) {
           </div>
         )}
 
+        {/* HORA */}
+        {draft.dateISO && (
+          <div className={theme.card}>
+            <TimePicker />
+          </div>
+        )}
+
+        {/* EMPLEADOS DISPONIBLES */}
         {draft.startISO && (
+          <div className={theme.card}>
+            {loadingEmployees ? (
+              <p>Cargando personal…</p>
+            ) : employees.length === 0 ? (
+              <p>No hay personal disponible a esa hora</p>
+            ) : (
+              employees.map(e => (
+                <button
+                  key={e.id}
+                  className="w-full border rounded px-4 py-2 mb-2"
+                  onClick={() =>
+                    setDraft(d => ({ ...d, employeeId: e.id }))
+                  }
+                >
+                  {e.name ??
+                    `${e.first_name ?? ''} ${e.last_name ?? ''}`.trim()}
+                </button>
+              ))
+            )}
+          </div>
+        )}
+
+        {/* CLIENTE */}
+        {draft.employeeId && (
           <div className={theme.card}>
             <ClientForm
               clientName={draft.clientName}
               phone={draft.phone}
-              onChange={(data) =>
+              onChange={data =>
                 setDraft(d => ({ ...d, ...data }))
               }
             />
@@ -194,22 +309,20 @@ export default function BusinessPublicClient({ slug }: Props) {
         )}
 
         {error && (
-          <p className="text-red-500 text-sm font-medium text-center">
-            {error}
-          </p>
+          <p className="text-red-500 text-center">{error}</p>
         )}
 
         <button
           disabled={!canSubmit || loading}
           onClick={handleSubmit}
-          className={`w-full py-4 rounded-xl text-lg transition ${
-            canSubmit ? theme.button : 'opacity-40 cursor-not-allowed'
+          className={`w-full py-4 rounded-xl ${
+            canSubmit ? theme.button : 'opacity-40'
           }`}
         >
           {loading ? 'Creando cita…' : 'Confirmar reserva'}
         </button>
 
-        <p className="text-xs opacity-70 text-center">
+        <p className="text-xs text-center opacity-70">
           Al crear la cita aceptas los{' '}
           <Link href="/legal/terminos" className="underline">
             Términos
