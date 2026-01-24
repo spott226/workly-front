@@ -175,6 +175,7 @@ export default function BusinessPublicClient({ slug }: Props) {
           <div className={theme.card}>
             <h3 className="font-semibold mb-2">Selecciona la fecha</h3>
             <input
+             key={draft.serviceId} // 🔥 FIX DEL BUG
               type="date"
               min={minDateISO as string}
               onChange={(e) =>

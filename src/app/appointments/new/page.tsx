@@ -103,6 +103,7 @@ export default function NewAppointmentPage() {
           <div className="space-y-2">
             <h3 className="font-semibold">Selecciona la fecha</h3>
             <input
+             key={draft.serviceId} // 🔥 FIX DEL BUG
               type="date"
               min={minDateISO as string}
               onChange={(e) =>
