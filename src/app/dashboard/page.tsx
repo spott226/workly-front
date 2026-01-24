@@ -7,14 +7,13 @@ import { useRouter } from 'next/navigation';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { CalendarView } from '@/components/calendar/CalendarView';
 import { AppointmentModal } from '@/components/appointments/AppointmentModal';
-import { StaffAvailabilityBoard } from '@/components/calendar/StaffAvailabilityBoard';
-
 import { Appointment, getAppointments } from '@/lib/appointments';
 import { apiFetch } from '@/lib/apiFetch';
+import { EmployeeSimpleSelector } from '@/components/employees/EmployeeSimpleSelector';
 
-/* =========================
-   TIPOS
-========================= */
+import { EmployeeSelector } from '@/components/booking/EmployeeSelector';
+import { StaffAvailabilityBoard } from '@/components/calendar/StaffAvailabilityBoard';
+
 type Period = 'day' | 'week' | 'month';
 
 type BusinessHours = {
@@ -22,21 +21,12 @@ type BusinessHours = {
   closing_time: string | null;
 };
 
-type Employee = {
-  id: string;
-  name: string;
-};
-
 const ZONE = 'America/Mexico_City';
 
-/* =========================
-   PAGE
-========================= */
 export default function DashboardPage() {
   const router = useRouter();
 
   const [appointments, setAppointments] = useState<Appointment[]>([]);
-  const [employees, setEmployees] = useState<Employee[]>([]);
   const [businessHours, setBusinessHours] =
     useState<BusinessHours | null>(null);
 
@@ -47,18 +37,16 @@ export default function DashboardPage() {
   const [selectedAppointment, setSelectedAppointment] =
     useState<Appointment | null>(null);
 
-  /* =========================
-     LOAD
-  ========================= */
+  const [selectedEmployee, setSelectedEmployee] =
+    useState<any | null>(null);
+
   async function loadData() {
     setLoading(true);
 
-    const [appointmentsData, businessData, employeesData] =
-      await Promise.all([
-        getAppointments(),
-        apiFetch<any>('/businesses/me'),
-        apiFetch<Employee[]>('/employees'),
-      ]);
+    const [appointmentsData, businessData] = await Promise.all([
+      getAppointments(),
+      apiFetch<any>('/businesses/me'),
+    ]);
 
     setAppointments(
       appointmentsData.filter(a => a.status !== 'CANCELLED')
@@ -69,8 +57,6 @@ export default function DashboardPage() {
       closing_time: businessData.closing_time ?? null,
     });
 
-    setEmployees(Array.isArray(employeesData) ? employeesData : []);
-
     setLoading(false);
   }
 
@@ -78,9 +64,6 @@ export default function DashboardPage() {
     loadData();
   }, []);
 
-  /* =========================
-     FILTRO GLOBAL (MISMO QUE CALENDAR)
-  ========================= */
   const filteredAppointments = useMemo(() => {
     return appointments.filter(a => {
       const d = DateTime.fromISO(a.starts_at, { zone: 'utc' }).setZone(ZONE);
@@ -93,16 +76,13 @@ export default function DashboardPage() {
     });
   }, [appointments, period, date]);
 
-  /* =========================
-     NAV DATE (MISMO CONTROL)
-  ========================= */
   function moveDate(step: number) {
     if (period === 'day') setDate(d => d.plus({ days: step }));
     if (period === 'week') setDate(d => d.plus({ weeks: step }));
     if (period === 'month') setDate(d => d.plus({ months: step }));
   }
 
-  if (loading || !businessHours) {
+  if (loading) {
     return (
       <DashboardLayout>
         <p className="text-sm text-gray-500">Cargando agenda…</p>
@@ -110,9 +90,6 @@ export default function DashboardPage() {
     );
   }
 
-  /* =========================
-     RENDER
-  ========================= */
   return (
     <DashboardLayout>
       {/* HEADER */}
@@ -127,7 +104,7 @@ export default function DashboardPage() {
         </button>
       </div>
 
-      {/* CONTROLES (MISMO UX) */}
+      {/* CONTROLES */}
       <div className="flex flex-wrap items-center gap-3 mb-4">
         {(['day', 'week', 'month'] as Period[]).map(p => (
           <button
@@ -172,26 +149,25 @@ export default function DashboardPage() {
         />
       )}
 
-      {/* =========================
-          DISPONIBILIDAD DEL EQUIPO
-          (MISMA FECHA / PERIODO)
-      ========================= */}
-      <div className="mt-12 space-y-6">
-        <h2 className="text-xl font-semibold">
-          Disponibilidad del equipo
-        </h2>
+      {/* DISPONIBILIDAD */}
+      <h2 className="text-lg font-semibold mt-12 mb-4">
+        Disponibilidad del equipo
+      </h2>
 
-        {employees.map(emp => (
-          <StaffAvailabilityBoard
-            key={emp.id}
-            employee={emp}
-            appointments={appointments}
-            date={date}
-            period={period}
-            business={businessHours}
-          />
-        ))}
-      </div>
+      <EmployeeSimpleSelector
+  onSelect={(employee) => setSelectedEmployee(employee)}
+/>
+
+
+      {selectedEmployee && (
+        <StaffAvailabilityBoard
+          employee={selectedEmployee}
+          appointments={appointments}
+          date={date}
+          period={period}
+          business={businessHours}
+        />
+      )}
     </DashboardLayout>
   );
 }
