@@ -2,14 +2,20 @@ import { apiFetch } from './apiFetch';
 
 export type Appointment = {
   id: string;
+
+  // 🔥 CLAVE PARA STAFF AVAILABILITY
+  employee_id: string;
+
   client_name: string;
   service_name: string;
   employee_name: string;
   phone: string;
   starts_at: string;
   ends_at: string;
+
   status: 'PENDING' | 'CONFIRMED' | 'ATTENDED' | 'NO_SHOW' | 'CANCELLED';
 };
+
 
 /* ======================
    LISTAR CITAS
