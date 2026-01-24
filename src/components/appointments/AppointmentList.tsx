@@ -4,28 +4,34 @@ import { useEffect, useMemo, useState } from 'react';
 import { DateTime } from 'luxon';
 
 import { Appointment, getAppointments } from '@/lib/appointments';
-import { CalendarView } from '@/components/calendar/CalendarView';
 import { AppointmentCard } from './AppointmentCard';
-import { apiFetch } from '@/lib/apiFetch';
+import { CalendarView } from '@/components/calendar/CalendarView';
 
 /* =========================
    TIPOS
 ========================= */
 type Period = 'day' | 'week' | 'month' | 'year';
-
-type Business = {
-  opening_time: string | null;
-  closing_time: string | null;
-};
+type ViewMode = 'list' | 'calendar';
 
 /* =========================
    CONSTANTES
 ========================= */
 const MONTHS = [
-  'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
-  'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
+  'Enero',
+  'Febrero',
+  'Marzo',
+  'Abril',
+  'Mayo',
+  'Junio',
+  'Julio',
+  'Agosto',
+  'Septiembre',
+  'Octubre',
+  'Noviembre',
+  'Diciembre',
 ];
 
+const PAGE_SIZE = 10;
 const ZONE = 'America/Mexico_City';
 
 /* =========================
@@ -33,71 +39,83 @@ const ZONE = 'America/Mexico_City';
 ========================= */
 export function AppointmentList() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
-  const [business, setBusiness] = useState<Business | null>(null);
   const [loading, setLoading] = useState(true);
 
   const [period, setPeriod] = useState<Period>('day');
-  const [date, setDate] = useState(DateTime.now().setZone(ZONE));
-  const [selectedAppointment, setSelectedAppointment] =
-    useState<Appointment | null>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>('calendar');
 
-  const currentYear = date.year;
+  const currentYear = DateTime.now().setZone(ZONE).year;
   const [year, setYear] = useState(currentYear);
   const [month, setMonth] = useState<number | null>(null);
+  const [page, setPage] = useState(1);
 
   /* =========================
      CARGA
   ========================= */
-  async function load() {
+  async function loadAppointments() {
     setLoading(true);
-
-    const [apps, biz] = await Promise.all([
-      getAppointments(),
-      apiFetch<Business>('/businesses/me'),
-    ]);
-
-    setAppointments(apps.filter(a => a.status !== 'CANCELLED'));
-    setBusiness(biz);
+    const data = await getAppointments();
+    setAppointments(data.filter(a => a.status !== 'CANCELLED'));
     setLoading(false);
   }
 
   useEffect(() => {
-    load();
+    loadAppointments();
   }, []);
 
   /* =========================
      FILTRO
   ========================= */
+  const todayMX = DateTime.now().setZone(ZONE);
+
   const filtered = useMemo(() => {
     return appointments.filter(a => {
-      const d = DateTime
-        .fromISO(a.starts_at, { zone: 'utc' })
-        .setZone(ZONE);
+      const d = DateTime.fromISO(a.starts_at, { zone: 'utc' }).setZone(ZONE);
 
       if (period === 'year') return d.year === year;
 
       if (period === 'month') {
-        const m = month ?? date.month - 1;
+        const m = month ?? todayMX.month - 1;
         return d.year === year && d.month - 1 === m;
       }
 
       if (period === 'week') {
-        return d >= date.startOf('week') && d <= date.endOf('week');
+        return d >= todayMX.startOf('week') && d <= todayMX.endOf('week');
       }
 
-      return d.hasSame(date, 'day');
+      return d.hasSame(todayMX, 'day');
     });
-  }, [appointments, period, year, month, date]);
+  }, [appointments, period, year, month, todayMX]);
 
   /* =========================
-     NAVEGACIÓN DE FECHA
+     ORDEN + PAGINACIÓN
   ========================= */
-  function moveDate(step: number) {
-    if (period === 'day') setDate(d => d.plus({ days: step }));
-    if (period === 'week') setDate(d => d.plus({ weeks: step }));
-    if (period === 'month') setDate(d => d.plus({ months: step }));
-    if (period === 'year') setDate(d => d.plus({ years: step }));
-  }
+  const statusPriority: Record<string, number> = {
+    PENDING: 1,
+    CONFIRMED: 2,
+    ATTENDED: 3,
+    NO_SHOW: 3,
+  };
+
+  const sorted = useMemo(() => {
+    return [...filtered].sort((a, b) => {
+      const pA = statusPriority[a.status] ?? 99;
+      const pB = statusPriority[b.status] ?? 99;
+      if (pA !== pB) return pA - pB;
+
+      return (
+        DateTime.fromISO(a.starts_at).toMillis() -
+        DateTime.fromISO(b.starts_at).toMillis()
+      );
+    });
+  }, [filtered]);
+
+  const totalPages = Math.ceil(sorted.length / PAGE_SIZE);
+  const paginated = sorted.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  useEffect(() => {
+    setPage(1);
+  }, [period, year, month, viewMode]);
 
   /* =========================
      STATES
@@ -130,7 +148,7 @@ export function AppointmentList() {
                 period === p ? 'bg-black text-white' : 'bg-white'
               }`}
             >
-              {p === 'day' && 'Día'}
+              {p === 'day' && 'Hoy'}
               {p === 'week' && 'Semana'}
               {p === 'month' && 'Mes'}
               {p === 'year' && 'Año'}
@@ -138,16 +156,20 @@ export function AppointmentList() {
           ))}
         </div>
 
-        {/* SELECTORES + FECHA */}
+        {/* SELECTORES */}
         <div className="flex flex-wrap gap-2 items-center">
           <select
             value={year}
             onChange={e => setYear(Number(e.target.value))}
             className="border rounded-md px-3 py-2 text-sm"
           >
-            {[year - 2, year - 1, year, year + 1].map(y => (
-              <option key={y} value={y}>{y}</option>
-            ))}
+            {[currentYear - 2, currentYear - 1, currentYear, currentYear + 1].map(
+              y => (
+                <option key={y} value={y}>
+                  {y}
+                </option>
+              )
+            )}
           </select>
 
           {period === 'month' && (
@@ -158,52 +180,92 @@ export function AppointmentList() {
             >
               <option value="">Mes</option>
               {MONTHS.map((m, i) => (
-                <option key={m} value={i}>{m}</option>
+                <option key={m} value={i}>
+                  {m}
+                </option>
               ))}
             </select>
           )}
 
-          <div className="ml-auto flex items-center gap-3">
-            <button onClick={() => moveDate(-1)}>←</button>
-            <span className="font-medium">
-              {date.toFormat('dd LLL yyyy')}
-            </span>
-            <button onClick={() => moveDate(1)}>→</button>
+          {/* VISTA */}
+          <div className="flex gap-2 ml-auto">
+            <button
+              onClick={() => setViewMode('calendar')}
+              className={`px-3 py-2 text-sm rounded-md border ${
+                viewMode === 'calendar' ? 'bg-black text-white' : 'bg-white'
+              }`}
+            >
+              Calendario
+            </button>
+
+            <button
+              onClick={() => setViewMode('list')}
+              className={`px-3 py-2 text-sm rounded-md border ${
+                viewMode === 'list' ? 'bg-black text-white' : 'bg-white'
+              }`}
+            >
+              Lista
+            </button>
           </div>
         </div>
       </div>
 
-      {/* CALENDARIO */}
-      <CalendarView
-        appointments={filtered}
-        view={
-          period === 'day'
-            ? 'day'
-            : period === 'week'
-            ? 'week'
-            : 'month'
-        }
-        businessHours={business}
-        onAppointmentClick={setSelectedAppointment}
-      />
+      {/* CONTENIDO */}
+      {viewMode === 'calendar' ? (
+        <CalendarView
+          appointments={filtered}
+          view={
+            period === 'day'
+              ? 'day'
+              : period === 'week'
+              ? 'week'
+              : 'month'
+          }
+          businessHours={null}
+        />
+      ) : (
+        <>
+          <div className="space-y-4">
+            {paginated.length === 0 && (
+              <p className="text-sm text-gray-500">
+                No hay citas en este rango.
+              </p>
+            )}
 
-      {/* MODAL */}
-      {selectedAppointment && (
-        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center">
-          <div className="bg-white rounded-xl w-full max-w-lg p-4 relative">
-            <button
-              onClick={() => setSelectedAppointment(null)}
-              className="absolute top-3 right-3 text-gray-400 hover:text-black"
-            >
-              ✕
-            </button>
-
-            <AppointmentCard
-              appointment={selectedAppointment}
-              onChange={load}
-            />
+            {paginated.map(a => (
+              <AppointmentCard
+                key={a.id}
+                appointment={a}
+                onChange={loadAppointments}
+              />
+            ))}
           </div>
-        </div>
+
+          {/* PAGINACIÓN */}
+          {totalPages > 1 && (
+            <div className="flex justify-center items-center gap-3 pt-4">
+              <button
+                disabled={page === 1}
+                onClick={() => setPage(p => p - 1)}
+                className="px-4 py-2 text-sm border rounded-md disabled:opacity-40"
+              >
+                Anterior
+              </button>
+
+              <span className="text-sm text-gray-600">
+                Página {page} de {totalPages}
+              </span>
+
+              <button
+                disabled={page === totalPages}
+                onClick={() => setPage(p => p + 1)}
+                className="px-4 py-2 text-sm border rounded-md disabled:opacity-40"
+              >
+                Siguiente
+              </button>
+            </div>
+          )}
+        </>
       )}
     </div>
   );
