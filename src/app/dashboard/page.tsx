@@ -21,6 +21,12 @@ type BusinessHours = {
   closing_time: string | null;
 };
 
+type EmployeeRaw = {
+  id: string;
+  first_name: string;
+  last_name: string;
+};
+
 type Employee = {
   id: string;
   name: string;
@@ -59,7 +65,7 @@ export default function DashboardPage() {
       await Promise.all([
         getAppointments(),
         apiFetch<any>('/businesses/me'),
-        apiFetch<Employee[]>('/employees'),
+        apiFetch<EmployeeRaw[]>('/employees'),
       ]);
 
     setAppointments(
@@ -71,11 +77,15 @@ export default function DashboardPage() {
       closing_time: businessData.closing_time ?? null,
     });
 
-    setEmployees(employeesData);
+    const normalizedEmployees: Employee[] = employeesData.map(e => ({
+      id: e.id,
+      name: `${e.first_name} ${e.last_name}`,
+    }));
 
-    // por default selecciona la primera empleada
-    if (employeesData.length && !selectedEmployeeId) {
-      setSelectedEmployeeId(employeesData[0].id);
+    setEmployees(normalizedEmployees);
+
+    if (normalizedEmployees.length && !selectedEmployeeId) {
+      setSelectedEmployeeId(normalizedEmployees[0].id);
     }
 
     setLoading(false);
@@ -86,7 +96,7 @@ export default function DashboardPage() {
   }, []);
 
   /* =========================
-     FILTRO FECHA (TU LÓGICA)
+     FILTRO POR FECHA
   ========================= */
   const filteredAppointments = useMemo(() => {
     return appointments.filter(a => {
@@ -101,7 +111,7 @@ export default function DashboardPage() {
   }, [appointments, period, date]);
 
   /* =========================
-     FILTRO EMPLEADA
+     FILTRO POR EMPLEADA
   ========================= */
   const employeeAppointments = useMemo(() => {
     if (!selectedEmployeeId) return [];
@@ -138,7 +148,7 @@ export default function DashboardPage() {
         </button>
       </div>
 
-      {/* CONTROLES SUPERIORES */}
+      {/* CONTROLES */}
       <div className="flex flex-wrap items-center gap-3 mb-4">
         {/* PERIODO */}
         {(['day', 'week', 'month'] as Period[]).map(p => (
@@ -155,7 +165,7 @@ export default function DashboardPage() {
           </button>
         ))}
 
-        {/* SELECT EMPLEADA */}
+        {/* EMPLEADA */}
         <select
           value={selectedEmployeeId ?? ''}
           onChange={e => setSelectedEmployeeId(e.target.value)}
@@ -178,16 +188,15 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* CALENDARIO (UNO SOLO) */}
+      {/* CALENDARIO */}
       <CalendarView
-  key={`${selectedEmployeeId}-${date.toISO()}`}
-  appointments={employeeAppointments}
-  view={period}
-  businessHours={businessHours}
-  baseDate={date}
-  onAppointmentClick={(a) => setSelectedAppointment(a)}
-/>
-
+        key={`${selectedEmployeeId}-${date.toISO()}`}
+        appointments={employeeAppointments}
+        view={period}
+        businessHours={businessHours}
+        baseDate={date}
+        onAppointmentClick={(a) => setSelectedAppointment(a)}
+      />
 
       {/* MODAL */}
       {selectedAppointment && (

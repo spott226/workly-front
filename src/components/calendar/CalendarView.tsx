@@ -28,7 +28,7 @@ type Props = {
   appointments: Appointment[];
   view: 'day' | 'week' | 'month';
   businessHours: BusinessHours | null;
-  baseDate?: DateTime; // 🔥 FECHA CONTROLADA DESDE AFUERA
+  baseDate?: DateTime;
   onAppointmentClick?: (a: Appointment) => void;
 };
 
@@ -37,12 +37,15 @@ type Props = {
 ========================= */
 function getBusinessHours(business: BusinessHours | null) {
   if (!business?.opening_time || !business?.closing_time) {
-    return { start: 8, end: 22 };
+    return { startMinutes: 8 * 60, endMinutes: 22 * 60 };
   }
 
+  const [openH, openM] = business.opening_time.split(':').map(Number);
+  const [closeH, closeM] = business.closing_time.split(':').map(Number);
+
   return {
-    start: Number(business.opening_time.split(':')[0]),
-    end: Number(business.closing_time.split(':')[0]),
+    startMinutes: openH * 60 + openM,
+    endMinutes: closeH * 60 + closeM,
   };
 }
 
@@ -56,7 +59,7 @@ export function CalendarView({
   baseDate,
   onAppointmentClick,
 }: Props) {
-  const { start, end } = getBusinessHours(businessHours);
+  const { startMinutes, endMinutes } = getBusinessHours(businessHours);
 
   if (view === 'month') {
     return (
@@ -72,8 +75,8 @@ export function CalendarView({
     <DayWeekView
       appointments={appointments}
       view={view}
-      startHour={start}
-      endHour={end}
+      startMinutes={startMinutes}
+      endMinutes={endMinutes}
       baseDate={baseDate}
       onAppointmentClick={onAppointmentClick}
     />
@@ -86,15 +89,15 @@ export function CalendarView({
 function DayWeekView({
   appointments,
   view,
-  startHour,
-  endHour,
+  startMinutes,
+  endMinutes,
   baseDate,
   onAppointmentClick,
 }: {
   appointments: Appointment[];
   view: 'day' | 'week';
-  startHour: number;
-  endHour: number;
+  startMinutes: number;
+  endMinutes: number;
   baseDate?: DateTime;
   onAppointmentClick?: (a: Appointment) => void;
 }) {
@@ -107,6 +110,9 @@ function DayWeekView({
           today.startOf('week').plus({ days: i })
         );
 
+  // 🔥 AQUÍ ESTABA TU ERROR
+  const startHour = Math.floor(startMinutes / 60);
+  const endHour = Math.ceil(endMinutes / 60);
   const hoursCount = endHour - startHour;
 
   return (
@@ -136,6 +142,8 @@ function DayWeekView({
             appointments={appointments}
             startHour={startHour}
             endHour={endHour}
+            startMinutes={startMinutes}
+            endMinutes={endMinutes}
             hoursCount={hoursCount}
             onAppointmentClick={onAppointmentClick}
           />
@@ -181,6 +189,8 @@ function DayColumn({
   appointments,
   startHour,
   endHour,
+  startMinutes,
+  endMinutes,
   hoursCount,
   onAppointmentClick,
 }: {
@@ -188,11 +198,13 @@ function DayColumn({
   appointments: Appointment[];
   startHour: number;
   endHour: number;
+  startMinutes: number;
+  endMinutes: number;
   hoursCount: number;
   onAppointmentClick?: (a: Appointment) => void;
 }) {
-  const dayStart = day.set({ hour: startHour, minute: 0 });
-  const dayEnd = day.set({ hour: endHour, minute: 0 });
+  const dayStart = day.startOf('day').plus({ minutes: startMinutes });
+  const dayEnd = day.startOf('day').plus({ minutes: endMinutes });
 
   const dayAppointments = appointments
     .map(a => {
@@ -209,8 +221,8 @@ function DayColumn({
       return { ...a, visibleStart, visibleEnd };
     })
     .filter(Boolean) as Array<
-    Appointment & { visibleStart: DateTime; visibleEnd: DateTime }
-  >;
+      Appointment & { visibleStart: DateTime; visibleEnd: DateTime }
+    >;
 
   return (
     <div
@@ -222,15 +234,13 @@ function DayColumn({
       ))}
 
       {dayAppointments.map(a => {
-        const startMinutes =
-          (a.visibleStart.hour - startHour) * 60 +
-          a.visibleStart.minute;
+        const startOffsetMinutes =
+          a.visibleStart.diff(dayStart, 'minutes').minutes;
 
-        const durationMinutes = a.visibleEnd
-          .diff(a.visibleStart, 'minutes')
-          .minutes;
+        const durationMinutes =
+          a.visibleEnd.diff(a.visibleStart, 'minutes').minutes;
 
-        const top = Math.max(startMinutes * MINUTE_HEIGHT, 0);
+        const top = startOffsetMinutes * MINUTE_HEIGHT;
         const height = Math.max(durationMinutes * MINUTE_HEIGHT, 24);
 
         return (
