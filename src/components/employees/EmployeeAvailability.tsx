@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { DateTime } from 'luxon';
 import { apiFetch } from '@/lib/apiFetch';
 
@@ -29,25 +29,25 @@ export function EmployeeAvailability({
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [activeEmployee, setActiveEmployee] = useState<string | null>(null);
   const [slots, setSlots] = useState<DateTime[]>([]);
-  const [loadingEmployees, setLoadingEmployees] = useState(true);
+  const [selectedISO, setSelectedISO] = useState<string | null>(null);
+  const [loadingEmployees, setLoadingEmployees] = useState(false);
   const [loadingSlots, setLoadingSlots] = useState(false);
 
-  // cache simple en memoria
-  const cacheRef = useRef<
-    Map<string, DateTime[]>
-  >(new Map());
-
   /* =========================
-     CARGAR EMPLEADOS (1 request)
+     1️⃣ CARGAR EMPLEADOS
+     (NO filtrar aquí)
   ========================= */
   useEffect(() => {
+    if (!serviceId || !date) return;
+
     async function loadEmployees() {
       setLoadingEmployees(true);
       setActiveEmployee(null);
       setSlots([]);
+      setSelectedISO(null);
 
       const emps = await apiFetch<Employee[]>(
-        `/employees?serviceId=${serviceId}`,
+        '/employees',
         publicMode ? { public: true } : undefined
       );
 
@@ -59,59 +59,56 @@ export function EmployeeAvailability({
   }, [serviceId, date, publicMode]);
 
   /* =========================
-     CARGAR HORARIOS (solo al click)
+     2️⃣ CARGAR HORARIOS
+     (solo al click)
   ========================= */
   async function loadSlots(employeeId: string) {
     setActiveEmployee(employeeId);
-    setLoadingSlots(true);
     setSlots([]);
-
-    const cacheKey = `${serviceId}-${employeeId}-${date.toISODate()}`;
-    const cached = cacheRef.current.get(cacheKey);
-
-    if (cached) {
-      setSlots(cached);
-      setLoadingSlots(false);
-      return;
-    }
+    setSelectedISO(null);
+    setLoadingSlots(true);
 
     const startDay = date.setZone(zone).startOf('day');
-    const hours: DateTime[] = [];
+    const generated: DateTime[] = [];
 
     for (let h = 8; h < 20; h++) {
-      hours.push(startDay.set({ hour: h, minute: 0 }));
-      hours.push(startDay.set({ hour: h, minute: 30 }));
+      generated.push(startDay.set({ hour: h, minute: 0 }));
+      generated.push(startDay.set({ hour: h, minute: 30 }));
     }
 
-    // ⚡ requests en paralelo
-    const results = await Promise.all(
-      hours.map(async (t) => {
-        try {
-          const res = await apiFetch<Employee[]>(
-            `/appointments/availability?serviceId=${serviceId}&startISO=${t
-              .setZone('utc')
-              .toISO()}`,
-            publicMode ? { public: true } : undefined
-          );
+    const valid: DateTime[] = [];
 
-          return Array.isArray(res) && res.some(e => e.id === employeeId)
-            ? t
-            : null;
-        } catch {
-          return null;
+    for (const t of generated) {
+      try {
+        const res = await apiFetch<Employee[]>(
+          `/appointments/availability?serviceId=${serviceId}&startISO=${t
+            .setZone('utc')
+            .toISO()}`,
+          publicMode ? { public: true } : undefined
+        );
+
+        if (Array.isArray(res) && res.some(e => e.id === employeeId)) {
+          valid.push(t);
         }
-      })
-    );
+      } catch {
+        // slot no válido
+      }
+    }
 
-    const validSlots = results.filter(Boolean) as DateTime[];
-    cacheRef.current.set(cacheKey, validSlots);
-
-    setSlots(validSlots);
+    setSlots(valid);
     setLoadingSlots(false);
   }
 
   if (loadingEmployees) {
     return <p className="text-sm opacity-60">Cargando empleadas…</p>;
+  }
+
+  if (employees.length === 0) {
+    return (
+      <p className="text-sm text-red-500">
+        No hay empleadas disponibles para este servicio
+      </p>
+    );
   }
 
   return (
@@ -121,43 +118,53 @@ export function EmployeeAvailability({
           emp.name ??
           `${emp.first_name ?? ''} ${emp.last_name ?? ''}`.trim();
 
-        const active = emp.id === activeEmployee;
+        const isActive = activeEmployee === emp.id;
 
         return (
           <div key={emp.id} className="border rounded-lg p-3">
-            {/* EMPLEADA */}
+            {/* EMPLEADO */}
             <button
               type="button"
               onClick={() => loadSlots(emp.id)}
-              className={`w-full text-left rounded-md px-4 py-3 font-medium transition
+              className={`w-full text-left px-4 py-3 rounded-lg border transition
                 ${
-                  active
-                    ? 'bg-emerald-500/15 border border-emerald-400'
-                    : 'bg-white hover:bg-gray-100'
+                  isActive
+                    ? 'border-emerald-400 ring-2 ring-emerald-400/40 bg-emerald-500/10'
+                    : 'border-black/10 hover:border-black/30'
                 }`}
             >
               {label}
             </button>
 
             {/* HORARIOS */}
-            {active && (
+            {isActive && (
               <div className="mt-3">
                 {loadingSlots ? (
                   <p className="text-sm opacity-60">Cargando horarios…</p>
                 ) : slots.length === 0 ? (
                   <p className="text-sm text-red-500">
-                    Esta empleada no tiene horarios disponibles
+                    Sin horarios disponibles
                   </p>
                 ) : (
                   <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
                     {slots.map(t => {
                       const iso = t.setZone('utc').toISO()!;
+                      const selected = selectedISO === iso;
+
                       return (
                         <button
                           key={iso}
                           type="button"
-                          onClick={() => onSelect(emp.id, iso)}
-                          className="rounded-md px-3 py-2 text-sm border bg-emerald-500/10 border-emerald-400 hover:bg-emerald-500/20"
+                          onClick={() => {
+                            setSelectedISO(iso);
+                            onSelect(emp.id, iso);
+                          }}
+                          className={`px-3 py-2 rounded-lg border text-sm transition
+                            ${
+                              selected
+                                ? 'bg-emerald-500 text-white border-emerald-500'
+                                : 'bg-white hover:bg-emerald-50 border-black/10'
+                            }`}
                         >
                           {t.toFormat('HH:mm')}
                         </button>
