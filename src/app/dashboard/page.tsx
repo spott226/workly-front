@@ -1,92 +1,170 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { DateTime } from 'luxon';
+import { useRouter } from 'next/navigation';
 
+import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { StaffCalendarsView } from '@/components/calendar/StaffCalendarsView';
-import { apiFetch } from '@/lib/apiFetch';
-import { Appointment } from '@/lib/appointments';
+import { AppointmentModal } from '@/components/appointments/AppointmentModal';
 
-/* =====================
+import { Appointment, getAppointments } from '@/lib/appointments';
+import { apiFetch } from '@/lib/apiFetch';
+
+/* =========================
    TYPES
-===================== */
-type Employee = {
-  id: string;
-  name: string;
-};
+========================= */
+type Period = 'day' | 'week' | 'month';
 
 type BusinessHours = {
   opening_time: string | null;
   closing_time: string | null;
 };
 
-type Period = 'day' | 'week' | 'month';
+type Employee = {
+  id: string;
+  name: string;
+};
 
-/* =====================
+const ZONE = 'America/Mexico_City';
+
+/* =========================
    PAGE
-===================== */
+========================= */
 export default function DashboardPage() {
+  const router = useRouter();
+
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [businessHours, setBusinessHours] =
     useState<BusinessHours | null>(null);
 
+  const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState<Period>('day');
+  const [date, setDate] = useState(DateTime.now().setZone(ZONE));
 
-  /* =====================
+  const [selectedAppointment, setSelectedAppointment] =
+    useState<Appointment | null>(null);
+
+  /* =========================
      LOAD DATA
-  ===================== */
-  useEffect(() => {
-    apiFetch<Appointment[]>('/appointments').then(setAppointments);
-    apiFetch<Employee[]>('/employees').then(setEmployees);
-    apiFetch<BusinessHours>('/businesses/me').then(res =>
-      setBusinessHours({
-        opening_time: res.opening_time ?? null,
-        closing_time: res.closing_time ?? null,
-      })
+  ========================= */
+  async function loadData() {
+    setLoading(true);
+
+    const [appointmentsData, businessData, employeesData] =
+      await Promise.all([
+        getAppointments(),
+        apiFetch<any>('/businesses/me'),
+        apiFetch<Employee[]>('/employees'),
+      ]);
+
+    setAppointments(
+      appointmentsData.filter(a => a.status !== 'CANCELLED')
     );
+
+    setBusinessHours({
+      opening_time: businessData.opening_time ?? null,
+      closing_time: businessData.closing_time ?? null,
+    });
+
+    setEmployees(employeesData);
+
+    setLoading(false);
+  }
+
+  useEffect(() => {
+    loadData();
   }, []);
 
+  /* =========================
+     FILTRO ORIGINAL (CLAVE)
+  ========================= */
+  const filteredAppointments = useMemo(() => {
+    return appointments.filter(a => {
+      const d = DateTime.fromISO(a.starts_at, { zone: 'utc' }).setZone(ZONE);
+
+      if (period === 'month') return d.hasSame(date, 'month');
+      if (period === 'week')
+        return d >= date.startOf('week') && d <= date.endOf('week');
+
+      return d.hasSame(date, 'day');
+    });
+  }, [appointments, period, date]);
+
+  function moveDate(step: number) {
+    if (period === 'day') setDate(d => d.plus({ days: step }));
+    if (period === 'week') setDate(d => d.plus({ weeks: step }));
+    if (period === 'month') setDate(d => d.plus({ months: step }));
+  }
+
+  if (loading) {
+    return (
+      <DashboardLayout>
+        <p className="text-sm text-gray-500">Cargando agenda…</p>
+      </DashboardLayout>
+    );
+  }
+
   return (
-    <div className="space-y-6">
+    <DashboardLayout>
       {/* HEADER */}
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Calendario por empleada</h1>
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold">Agenda por empleada</h1>
 
         <button
-          type="button"
-          className="px-4 py-2 text-sm rounded-md bg-black text-white hover:bg-gray-800"
-          onClick={() => {
-            // aquí navegas a crear cita
-          }}
+          onClick={() => router.push('/appointments/new')}
+          className="px-5 py-2 rounded bg-black text-white"
         >
-          Crear cita
+          + Crear cita
         </button>
       </div>
 
-      {/* CONTROLES DE PERIODO */}
-      <div className="flex gap-2 border-b pb-4">
+      {/* CONTROLES */}
+      <div className="flex flex-wrap items-center gap-3 mb-4">
         {(['day', 'week', 'month'] as Period[]).map(p => (
           <button
             key={p}
             onClick={() => setPeriod(p)}
-            className={`px-4 py-2 text-sm rounded-md border ${
-              period === p ? 'bg-black text-white' : 'bg-white'
+            className={`px-4 py-2 border rounded ${
+              period === p ? 'bg-black text-white' : ''
             }`}
           >
-            {p === 'day' && 'Hoy'}
+            {p === 'day' && 'Día'}
             {p === 'week' && 'Semana'}
             {p === 'month' && 'Mes'}
           </button>
         ))}
+
+        <div className="ml-auto flex items-center gap-3">
+          <button onClick={() => moveDate(-1)}>←</button>
+          <span className="font-medium">
+            {date.toFormat('dd LLL yyyy')}
+          </span>
+          <button onClick={() => moveDate(1)}>→</button>
+        </div>
       </div>
 
       {/* CALENDARIOS POR EMPLEADA */}
       <StaffCalendarsView
         employees={employees}
-        appointments={appointments}
+        appointments={filteredAppointments}
         period={period}
         businessHours={businessHours}
+        onAppointmentClick={setSelectedAppointment}
       />
-    </div>
+
+      {/* MODAL */}
+      {selectedAppointment && (
+        <AppointmentModal
+          appointment={selectedAppointment}
+          onClose={() => setSelectedAppointment(null)}
+          onChange={() => {
+            setSelectedAppointment(null);
+            loadData();
+          }}
+        />
+      )}
+    </DashboardLayout>
   );
 }
