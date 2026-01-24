@@ -8,17 +8,31 @@ const HOUR_HEIGHT = 64;
 const MINUTE_HEIGHT = HOUR_HEIGHT / 60;
 
 /* =========================
-   COLORES POR ESTADO
+   COLORES POR EMPLEADA
 ========================= */
-const STATUS_COLORS: Record<string, string> = {
-  PENDING: 'bg-yellow-500',
-  CONFIRMED: 'bg-blue-600',
-  ATTENDED: 'bg-emerald-600',
-  NO_SHOW: 'bg-red-600',
-  CANCELLED: 'bg-gray-400',
-  RESCHEDULED: 'bg-purple-600',
-};
+const EMPLOYEE_COLORS = [
+  'bg-rose-500',
+  'bg-sky-500',
+  'bg-emerald-500',
+  'bg-purple-500',
+  'bg-orange-500',
+  'bg-indigo-500',
+];
 
+const employeeColorMap = new Map<string, string>();
+
+function getEmployeeColor(employeeId: string) {
+  if (!employeeColorMap.has(employeeId)) {
+    const color =
+      EMPLOYEE_COLORS[employeeColorMap.size % EMPLOYEE_COLORS.length];
+    employeeColorMap.set(employeeId, color);
+  }
+  return employeeColorMap.get(employeeId)!;
+}
+
+/* =========================
+   TYPES
+========================= */
 type BusinessHours = {
   opening_time: string | null;
   closing_time: string | null;
@@ -35,17 +49,17 @@ type Props = {
 /* =========================
    HELPERS
 ========================= */
-function getBusinessHours(business: BusinessHours | null) {
+function getBusinessMinutes(business: BusinessHours | null) {
   if (!business?.opening_time || !business?.closing_time) {
-    return { startMinutes: 8 * 60, endMinutes: 22 * 60 };
+    return { start: 8 * 60, end: 22 * 60 };
   }
 
-  const [openH, openM] = business.opening_time.split(':').map(Number);
-  const [closeH, closeM] = business.closing_time.split(':').map(Number);
+  const [oh, om] = business.opening_time.split(':').map(Number);
+  const [ch, cm] = business.closing_time.split(':').map(Number);
 
   return {
-    startMinutes: openH * 60 + openM,
-    endMinutes: closeH * 60 + closeM,
+    start: oh * 60 + om,
+    end: ch * 60 + cm,
   };
 }
 
@@ -59,7 +73,7 @@ export function CalendarView({
   baseDate,
   onAppointmentClick,
 }: Props) {
-  const { startMinutes, endMinutes } = getBusinessHours(businessHours);
+  const { start, end } = getBusinessMinutes(businessHours);
 
   if (view === 'month') {
     return (
@@ -75,8 +89,8 @@ export function CalendarView({
     <DayWeekView
       appointments={appointments}
       view={view}
-      startMinutes={startMinutes}
-      endMinutes={endMinutes}
+      startMinutes={start}
+      endMinutes={end}
       baseDate={baseDate}
       onAppointmentClick={onAppointmentClick}
     />
@@ -101,19 +115,17 @@ function DayWeekView({
   baseDate?: DateTime;
   onAppointmentClick?: (a: Appointment) => void;
 }) {
-  const today = (baseDate ?? DateTime.now()).setZone(ZONE);
+  const dayBase = (baseDate ?? DateTime.now()).setZone(ZONE);
 
   const days =
     view === 'day'
-      ? [today]
+      ? [dayBase]
       : Array.from({ length: 7 }, (_, i) =>
-          today.startOf('week').plus({ days: i })
+          dayBase.startOf('week').plus({ days: i })
         );
 
-  // 🔥 AQUÍ ESTABA TU ERROR
-  const startHour = Math.floor(startMinutes / 60);
-  const endHour = Math.ceil(endMinutes / 60);
-  const hoursCount = endHour - startHour;
+  const totalMinutes = endMinutes - startMinutes;
+  const hoursCount = Math.ceil(totalMinutes / 60);
 
   return (
     <div className="border rounded overflow-x-auto">
@@ -127,21 +139,19 @@ function DayWeekView({
         {days.map(d => (
           <div
             key={d.toISODate()}
-            className="border-b py-2 text-center text-sm font-medium"
+            className="border-b py-2 text-center text-sm font-semibold"
           >
             {d.toFormat('ccc dd')}
           </div>
         ))}
 
-        <TimeColumn startHour={startHour} hoursCount={hoursCount} />
+        <TimeColumn startMinutes={startMinutes} hoursCount={hoursCount} />
 
         {days.map(day => (
           <DayColumn
             key={day.toISODate()}
             day={day}
             appointments={appointments}
-            startHour={startHour}
-            endHour={endHour}
             startMinutes={startMinutes}
             endMinutes={endMinutes}
             hoursCount={hoursCount}
@@ -157,23 +167,27 @@ function DayWeekView({
    TIME COLUMN
 ========================= */
 function TimeColumn({
-  startHour,
+  startMinutes,
   hoursCount,
 }: {
-  startHour: number;
+  startMinutes: number;
   hoursCount: number;
 }) {
   return (
     <div className="relative">
       {Array.from({ length: hoursCount }).map((_, i) => {
-        const hour = startHour + i;
+        const minutes = startMinutes + i * 60;
+        const h = Math.floor(minutes / 60);
+        const m = minutes % 60;
+
         return (
           <div
-            key={hour}
+            key={i}
             className="border-t text-xs text-right pr-2 text-gray-500"
             style={{ height: HOUR_HEIGHT }}
           >
-            {String(hour).padStart(2, '0')}:00
+            {String(h).padStart(2, '0')}:
+            {String(m).padStart(2, '0')}
           </div>
         );
       })}
@@ -187,8 +201,6 @@ function TimeColumn({
 function DayColumn({
   day,
   appointments,
-  startHour,
-  endHour,
   startMinutes,
   endMinutes,
   hoursCount,
@@ -196,8 +208,6 @@ function DayColumn({
 }: {
   day: DateTime;
   appointments: Appointment[];
-  startHour: number;
-  endHour: number;
   startMinutes: number;
   endMinutes: number;
   hoursCount: number;
@@ -221,8 +231,8 @@ function DayColumn({
       return { ...a, visibleStart, visibleEnd };
     })
     .filter(Boolean) as Array<
-      Appointment & { visibleStart: DateTime; visibleEnd: DateTime }
-    >;
+    Appointment & { visibleStart: DateTime; visibleEnd: DateTime }
+  >;
 
   return (
     <div
@@ -234,26 +244,33 @@ function DayColumn({
       ))}
 
       {dayAppointments.map(a => {
-        const startOffsetMinutes =
-          a.visibleStart.diff(dayStart, 'minutes').minutes;
+        const startOffset =
+          (a.visibleStart.diff(dayStart, 'minutes').minutes || 0) *
+          MINUTE_HEIGHT;
 
-        const durationMinutes =
-          a.visibleEnd.diff(a.visibleStart, 'minutes').minutes;
-
-        const top = startOffsetMinutes * MINUTE_HEIGHT;
-        const height = Math.max(durationMinutes * MINUTE_HEIGHT, 24);
+        const duration =
+          a.visibleEnd.diff(a.visibleStart, 'minutes').minutes *
+          MINUTE_HEIGHT;
 
         return (
           <div
             key={a.id}
             onClick={() => onAppointmentClick?.(a)}
-            className={`absolute left-1 right-1 rounded text-white text-xs px-2 py-1 cursor-pointer ${STATUS_COLORS[a.status]}`}
-            style={{ top, height }}
+            className={`absolute left-1 right-1 rounded text-white text-xs px-2 py-1 cursor-pointer ${getEmployeeColor(
+              a.employee_id
+            )}`}
+            style={{
+              top: startOffset,
+              height: Math.max(duration, 24),
+            }}
           >
-            <div className="font-medium truncate">
+            <div className="font-semibold truncate">
+              {a.employee_name}
+            </div>
+            <div className="opacity-90 truncate">
               {a.client_name || 'Cliente'}
             </div>
-            <div className="opacity-80">
+            <div className="text-[11px] opacity-80">
               {a.visibleStart.toFormat('HH:mm')} –{' '}
               {a.visibleEnd.toFormat('HH:mm')}
             </div>
@@ -300,9 +317,11 @@ function MonthView({
               <div
                 key={a.id}
                 onClick={() => onAppointmentClick?.(a)}
-                className={`mb-1 rounded text-white text-xs px-2 py-1 cursor-pointer truncate ${STATUS_COLORS[a.status]}`}
+                className={`mb-1 rounded text-white text-xs px-2 py-1 truncate cursor-pointer ${getEmployeeColor(
+                  a.employee_id
+                )}`}
               >
-                {a.client_name || 'Cliente'}
+                {a.employee_name}
               </div>
             ))}
           </div>
