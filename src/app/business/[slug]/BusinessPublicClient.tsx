@@ -9,6 +9,7 @@ import { ServiceSelector } from '@/components/booking/ServiceSelector';
 import { ClientForm } from '@/components/booking/ClientForm';
 import { BookingConfirmation } from '@/components/booking/BookingConfirmation';
 import { apiFetch } from '@/lib/apiFetch';
+
 import { BUSINESS_THEMES } from '@/styles/businessThemes';
 import { FONT_PRESETS } from '@/styles/fontPresets';
 
