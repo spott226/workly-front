@@ -3,6 +3,9 @@
 import { DateTime } from 'luxon';
 import { Appointment } from '@/lib/appointments';
 
+/* =========================
+   CONSTANTES
+========================= */
 const ZONE = 'America/Mexico_City';
 const HOUR_HEIGHT = 64;
 const MINUTE_HEIGHT = HOUR_HEIGHT / 60;
@@ -20,22 +23,23 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 /* =========================
-   COLORES POR EMPLEADA
+   COLORES POR EMPLEADA (PALETA SEPARADA)
 ========================= */
 const EMPLOYEE_COLORS = [
-  '#F97316',
-  '#EC4899',
-  '#0EA5E9',
-  '#22C55E',
-  '#A855F7',
+  '#F59E0B', // amber
+  '#EC4899', // pink
+  '#06B6D4', // cyan
+  '#A855F7', // purple
+  '#F97316', // orange
+  '#84CC16', // lime
 ];
 
 function getEmployeeColor(employeeId: string) {
   let hash = 0;
   for (let i = 0; i < employeeId.length; i++) {
-    hash += employeeId.charCodeAt(i);
+    hash = (hash + employeeId.charCodeAt(i)) * 17;
   }
-  return EMPLOYEE_COLORS[hash % EMPLOYEE_COLORS.length];
+  return EMPLOYEE_COLORS[Math.abs(hash) % EMPLOYEE_COLORS.length];
 }
 
 /* =========================
@@ -83,7 +87,7 @@ export function CalendarView({
   if (view === 'month') {
     return (
       <div className="text-sm opacity-60">
-        Vista mensual (pendiente de extender)
+        Vista mensual (pendiente)
       </div>
     );
   }
@@ -247,6 +251,9 @@ function DayColumn({
         const height =
           a.end.diff(a.start, 'minutes').minutes * MINUTE_HEIGHT;
 
+        const statusColor = STATUS_COLORS[a.status];
+        const employeeColor = getEmployeeColor(a.employee_id);
+
         return (
           <div
             key={a.id}
@@ -255,16 +262,34 @@ function DayColumn({
             style={{
               top,
               height,
-              background: `linear-gradient(
-                90deg,
-                ${STATUS_COLORS[a.status]} 0%,
-                ${STATUS_COLORS[a.status]} 50%,
-                ${getEmployeeColor(a.employee_id)} 50%,
-                ${getEmployeeColor(a.employee_id)} 100%
-              )`,
+              background: `
+                linear-gradient(
+                  90deg,
+                  ${statusColor} 0%,
+                  ${statusColor} 50%,
+                  ${employeeColor} 50%,
+                  ${employeeColor} 100%
+                )
+              `,
             }}
           >
-            <div className="px-2 py-1">
+            {/* MOBILE FIX */}
+            <div
+              className="sm:hidden absolute inset-0"
+              style={{
+                background: `
+                  linear-gradient(
+                    180deg,
+                    ${statusColor} 0%,
+                    ${statusColor} 50%,
+                    ${employeeColor} 50%,
+                    ${employeeColor} 100%
+                  )
+                `,
+              }}
+            />
+
+            <div className="relative px-2 py-1">
               <div className="font-medium truncate">
                 {a.client_name}
               </div>
