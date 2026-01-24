@@ -12,41 +12,40 @@ type Props = {
   employees: Employee[];
   appointments: Appointment[];
   date: DateTime;
+  openingHour: number;
+  closingHour: number;
 };
 
 const ZONE = 'America/Mexico_City';
-const START_HOUR = 8;
-const END_HOUR = 22;
 
 export function StaffAvailabilityBoard({
   employees,
   appointments,
   date,
+  openingHour,
+  closingHour,
 }: Props) {
   const slots: DateTime[] = [];
 
-  for (let h = START_HOUR; h < END_HOUR; h++) {
+  for (let h = openingHour; h < closingHour; h++) {
     slots.push(date.set({ hour: h, minute: 0 }));
     slots.push(date.set({ hour: h, minute: 30 }));
   }
 
- function isOccupied(employeeId: string, slot: DateTime) {
-  return appointments.some(a => {
-    if (a.employee_id !== employeeId) return false;
+  function isOccupied(employeeName: string, slot: DateTime) {
+    return appointments.some(a => {
+      if (a.employee_name !== employeeName) return false;
 
-    const start = DateTime.fromISO(a.starts_at, { zone: 'utc' })
-      .setZone(ZONE);
+      const start = DateTime.fromISO(a.starts_at, { zone: 'utc' }).setZone(ZONE);
+      const end = DateTime.fromISO(a.ends_at, { zone: 'utc' }).setZone(ZONE);
 
-    const end = DateTime.fromISO(a.ends_at, { zone: 'utc' })
-      .setZone(ZONE);
-
-    return slot >= start && slot < end;
-  });
-}
+      return slot >= start && slot < end;
+    });
+  }
 
   return (
-    <div className="mt-8">
-      <h3 className="font-semibold mb-3">
+    <div className="mt-10">
+      <h3 className="font-semibold mb-4">
         Disponibilidad por empleado · {date.toFormat('dd LLL yyyy')}
       </h3>
 
@@ -54,13 +53,11 @@ export function StaffAvailabilityBoard({
         <div
           className="grid"
           style={{
-            gridTemplateColumns: `100px repeat(${employees.length}, 1fr)`,
+            gridTemplateColumns: `90px repeat(${employees.length}, 1fr)`,
           }}
         >
           {/* HEADER */}
-          <div className="border-b p-2 text-sm font-medium">
-            Hora
-          </div>
+          <div className="border-b p-2 text-sm font-medium">Hora</div>
 
           {employees.map(e => (
             <div
@@ -73,29 +70,24 @@ export function StaffAvailabilityBoard({
 
           {/* GRID */}
           {slots.map(slot => (
-            <>
-              <div
-                key={slot.toISO()}
-                className="border-t p-2 text-xs text-gray-500"
-              >
+            <div key={slot.toISO()} className="contents">
+              <div className="border-t p-2 text-xs text-gray-500">
                 {slot.toFormat('HH:mm')}
               </div>
 
               {employees.map(e => {
-                const busy = isOccupied(e.id, slot);
+                const busy = isOccupied(e.name, slot);
 
                 return (
                   <div
                     key={e.id + slot.toISO()}
                     className={`border-t h-8 ${
-                      busy
-                        ? 'bg-green-500/70'
-                        : 'bg-gray-200'
+                      busy ? 'bg-green-500/70' : 'bg-gray-200'
                     }`}
                   />
                 );
               })}
-            </>
+            </div>
           ))}
         </div>
       </div>

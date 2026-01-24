@@ -10,6 +10,13 @@ import { StaffAvailabilityBoard } from '@/components/calendar/StaffAvailabilityB
 import { apiFetch } from '@/lib/apiFetch';
 import { Appointment } from '@/lib/appointments';
 
+type Business = {
+  id: string;
+  name: string;
+  opening_hour: number;
+  closing_hour: number;
+};
+
 type Employee = {
   id: string;
   name: string;
@@ -17,20 +24,42 @@ type Employee = {
 
 export default function DashboardPage() {
   const router = useRouter();
-  const [appointments, setAppointments] = useState<Appointment[]>([]);
+
+  const [business, setBusiness] = useState<Business | null>(null);
   const [employees, setEmployees] = useState<Employee[]>([]);
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [date, setDate] = useState(DateTime.now());
 
   useEffect(() => {
-    apiFetch<Appointment[]>('/appointments').then(setAppointments);
-    apiFetch<Employee[]>('/employees').then(setEmployees);
+    async function load() {
+      const biz = await apiFetch<Business>('/businesses/me');
+      setBusiness(biz);
+
+      const staff = await apiFetch<Employee[]>('/employees');
+      setEmployees(staff);
+
+      const apps = await apiFetch<Appointment[]>('/appointments');
+      setAppointments(apps);
+    }
+
+    load();
   }, []);
+
+  if (!business) {
+    return (
+      <DashboardLayout>
+        <p>Cargando…</p>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>
       {/* HEADER */}
       <div className="flex justify-between mb-6">
-        <h1 className="text-2xl font-bold">Agenda</h1>
+        <h1 className="text-2xl font-bold">
+          Agenda · {business.name}
+        </h1>
 
         <button
           onClick={() => router.push('/appointments/new')}
@@ -40,11 +69,11 @@ export default function DashboardPage() {
         </button>
       </div>
 
-      {/* CONTROLES DE FECHA */}
-      <div className="flex items-center gap-2 mb-4">
+      {/* SELECTOR DÍA */}
+      <div className="flex items-center gap-3 mb-4">
         <button
           onClick={() => setDate(d => d.minus({ days: 1 }))}
-          className="px-3 py-1 border rounded"
+          className="px-3 py-2 border rounded"
         >
           ←
         </button>
@@ -55,7 +84,7 @@ export default function DashboardPage() {
 
         <button
           onClick={() => setDate(d => d.plus({ days: 1 }))}
-          className="px-3 py-1 border rounded"
+          className="px-3 py-2 border rounded"
         >
           →
         </button>
@@ -67,11 +96,13 @@ export default function DashboardPage() {
         view="day"
       />
 
-      {/* DISPONIBILIDAD ABAJO */}
+      {/* DISPONIBILIDAD */}
       <StaffAvailabilityBoard
         employees={employees}
         appointments={appointments}
         date={date}
+        openingHour={business.opening_hour}
+        closingHour={business.closing_hour}
       />
     </DashboardLayout>
   );
