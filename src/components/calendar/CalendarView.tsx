@@ -8,30 +8,39 @@ const HOUR_HEIGHT = 64;
 const MINUTE_HEIGHT = HOUR_HEIGHT / 60;
 
 /* =========================
+   COLORES POR ESTADO
+========================= */
+const STATUS_COLORS: Record<string, string> = {
+  PENDING: 'bg-yellow-500',
+  CONFIRMED: 'bg-blue-600',
+  ATTENDED: 'bg-emerald-600',
+  NO_SHOW: 'bg-red-600',
+  CANCELLED: 'bg-gray-400',
+  RESCHEDULED: 'bg-purple-600',
+};
+
+/* =========================
    COLORES POR EMPLEADA
 ========================= */
 const EMPLOYEE_COLORS = [
-  'bg-rose-500',
-  'bg-sky-500',
-  'bg-emerald-500',
-  'bg-purple-500',
+  'bg-fuchsia-500',
+  'bg-cyan-500',
   'bg-orange-500',
+  'bg-lime-500',
   'bg-indigo-500',
+  'bg-pink-500',
 ];
 
-const employeeColorMap = new Map<string, string>();
-
 function getEmployeeColor(employeeId: string) {
-  if (!employeeColorMap.has(employeeId)) {
-    const color =
-      EMPLOYEE_COLORS[employeeColorMap.size % EMPLOYEE_COLORS.length];
-    employeeColorMap.set(employeeId, color);
+  let hash = 0;
+  for (let i = 0; i < employeeId.length; i++) {
+    hash = employeeId.charCodeAt(i) + ((hash << 5) - hash);
   }
-  return employeeColorMap.get(employeeId)!;
+  return EMPLOYEE_COLORS[Math.abs(hash) % EMPLOYEE_COLORS.length];
 }
 
 /* =========================
-   TYPES
+   TIPOS
 ========================= */
 type BusinessHours = {
   opening_time: string | null;
@@ -115,13 +124,13 @@ function DayWeekView({
   baseDate?: DateTime;
   onAppointmentClick?: (a: Appointment) => void;
 }) {
-  const dayBase = (baseDate ?? DateTime.now()).setZone(ZONE);
+  const base = (baseDate ?? DateTime.now()).setZone(ZONE);
 
   const days =
     view === 'day'
-      ? [dayBase]
+      ? [base]
       : Array.from({ length: 7 }, (_, i) =>
-          dayBase.startOf('week').plus({ days: i })
+          base.startOf('week').plus({ days: i })
         );
 
   const totalMinutes = endMinutes - startMinutes;
@@ -131,21 +140,35 @@ function DayWeekView({
     <div className="border rounded overflow-x-auto">
       <div
         className="grid min-w-[900px]"
-        style={{
-          gridTemplateColumns: `80px repeat(${days.length}, 1fr)`,
-        }}
+        style={{ gridTemplateColumns: `80px repeat(${days.length}, 1fr)` }}
       >
         <div />
         {days.map(d => (
           <div
             key={d.toISODate()}
-            className="border-b py-2 text-center text-sm font-semibold"
+            className="border-b py-2 text-center text-sm font-medium"
           >
             {d.toFormat('ccc dd')}
           </div>
         ))}
 
-        <TimeColumn startMinutes={startMinutes} hoursCount={hoursCount} />
+        {/* TIME COLUMN */}
+        <div>
+          {Array.from({ length: hoursCount }).map((_, i) => {
+            const minutes = startMinutes + i * 60;
+            const h = Math.floor(minutes / 60);
+            const m = minutes % 60;
+            return (
+              <div
+                key={i}
+                className="border-t text-xs text-right pr-2 text-gray-500"
+                style={{ height: HOUR_HEIGHT }}
+              >
+                {String(h).padStart(2, '0')}:{String(m).padStart(2, '0')}
+              </div>
+            );
+          })}
+        </div>
 
         {days.map(day => (
           <DayColumn
@@ -154,43 +177,10 @@ function DayWeekView({
             appointments={appointments}
             startMinutes={startMinutes}
             endMinutes={endMinutes}
-            hoursCount={hoursCount}
             onAppointmentClick={onAppointmentClick}
           />
         ))}
       </div>
-    </div>
-  );
-}
-
-/* =========================
-   TIME COLUMN
-========================= */
-function TimeColumn({
-  startMinutes,
-  hoursCount,
-}: {
-  startMinutes: number;
-  hoursCount: number;
-}) {
-  return (
-    <div className="relative">
-      {Array.from({ length: hoursCount }).map((_, i) => {
-        const minutes = startMinutes + i * 60;
-        const h = Math.floor(minutes / 60);
-        const m = minutes % 60;
-
-        return (
-          <div
-            key={i}
-            className="border-t text-xs text-right pr-2 text-gray-500"
-            style={{ height: HOUR_HEIGHT }}
-          >
-            {String(h).padStart(2, '0')}:
-            {String(m).padStart(2, '0')}
-          </div>
-        );
-      })}
     </div>
   );
 }
@@ -203,76 +193,67 @@ function DayColumn({
   appointments,
   startMinutes,
   endMinutes,
-  hoursCount,
   onAppointmentClick,
 }: {
   day: DateTime;
   appointments: Appointment[];
   startMinutes: number;
   endMinutes: number;
-  hoursCount: number;
   onAppointmentClick?: (a: Appointment) => void;
 }) {
   const dayStart = day.startOf('day').plus({ minutes: startMinutes });
   const dayEnd = day.startOf('day').plus({ minutes: endMinutes });
 
-  const dayAppointments = appointments
+  const visible = appointments
     .map(a => {
       const start = DateTime.fromISO(a.starts_at, { zone: 'utc' }).setZone(ZONE);
       const end = DateTime.fromISO(a.ends_at, { zone: 'utc' }).setZone(ZONE);
 
       if (!start.hasSame(day, 'day')) return null;
 
-      const visibleStart = start < dayStart ? dayStart : start;
-      const visibleEnd = end > dayEnd ? dayEnd : end;
+      const vs = start < dayStart ? dayStart : start;
+      const ve = end > dayEnd ? dayEnd : end;
+      if (ve <= vs) return null;
 
-      if (visibleEnd <= visibleStart) return null;
-
-      return { ...a, visibleStart, visibleEnd };
+      return { ...a, vs, ve };
     })
-    .filter(Boolean) as Array<
-    Appointment & { visibleStart: DateTime; visibleEnd: DateTime }
-  >;
+    .filter(Boolean) as Array<Appointment & { vs: DateTime; ve: DateTime }>;
 
   return (
     <div
       className="relative border-l"
-      style={{ height: hoursCount * HOUR_HEIGHT }}
+      style={{ height: ((endMinutes - startMinutes) / 60) * HOUR_HEIGHT }}
     >
-      {Array.from({ length: hoursCount }).map((_, i) => (
-        <div key={i} className="border-t" style={{ height: HOUR_HEIGHT }} />
-      ))}
-
-      {dayAppointments.map(a => {
-        const startOffset =
-          (a.visibleStart.diff(dayStart, 'minutes').minutes || 0) *
-          MINUTE_HEIGHT;
-
-        const duration =
-          a.visibleEnd.diff(a.visibleStart, 'minutes').minutes *
-          MINUTE_HEIGHT;
+      {visible.map(a => {
+        const top =
+          a.vs.diff(dayStart, 'minutes').minutes * MINUTE_HEIGHT;
+        const height =
+          Math.max(a.ve.diff(a.vs, 'minutes').minutes * MINUTE_HEIGHT, 24);
 
         return (
           <div
             key={a.id}
             onClick={() => onAppointmentClick?.(a)}
-            className={`absolute left-1 right-1 rounded text-white text-xs px-2 py-1 cursor-pointer ${getEmployeeColor(
-              a.employee_id
-            )}`}
-            style={{
-              top: startOffset,
-              height: Math.max(duration, 24),
-            }}
+            className={`absolute left-1 right-1 rounded text-white text-xs cursor-pointer ${STATUS_COLORS[a.status]}`}
+            style={{ top, height }}
           >
-            <div className="font-semibold truncate">
-              {a.employee_name}
-            </div>
-            <div className="opacity-90 truncate">
-              {a.client_name || 'Cliente'}
-            </div>
-            <div className="text-[11px] opacity-80">
-              {a.visibleStart.toFormat('HH:mm')} –{' '}
-              {a.visibleEnd.toFormat('HH:mm')}
+            {/* EMPLEADA */}
+            <div
+              className={`absolute left-0 top-0 bottom-0 w-1 rounded-l ${getEmployeeColor(
+                a.employee_id
+              )}`}
+            />
+
+            <div className="pl-3 pr-2 py-1">
+              <div className="font-semibold truncate">
+                {a.client_name || 'Cliente'}
+              </div>
+              <div className="text-[11px] opacity-90 truncate">
+                {a.employee_name}
+              </div>
+              <div className="text-[11px] opacity-80">
+                {a.vs.toFormat('HH:mm')} – {a.ve.toFormat('HH:mm')}
+              </div>
             </div>
           </div>
         );
@@ -301,27 +282,28 @@ function MonthView({
       {Array.from({ length: 42 }).map((_, i) => {
         const day = start.plus({ days: i });
 
-        const dayAppointments = appointments.filter(a => {
-          const d = DateTime.fromISO(a.starts_at, { zone: 'utc' }).setZone(ZONE);
-          return d.hasSame(day, 'day');
-        });
+        const dayApps = appointments.filter(a =>
+          DateTime.fromISO(a.starts_at, { zone: 'utc' })
+            .setZone(ZONE)
+            .hasSame(day, 'day')
+        );
 
         return (
-          <div
-            key={day.toISODate()}
-            className="bg-white min-h-[120px] p-2 text-sm"
-          >
-            <div className="text-xs text-gray-500 mb-1">{day.day}</div>
+          <div key={day.toISODate()} className="bg-white p-2 text-xs min-h-[120px]">
+            <div className="text-gray-500 mb-1">{day.day}</div>
 
-            {dayAppointments.map(a => (
+            {dayApps.map(a => (
               <div
                 key={a.id}
                 onClick={() => onAppointmentClick?.(a)}
-                className={`mb-1 rounded text-white text-xs px-2 py-1 truncate cursor-pointer ${getEmployeeColor(
-                  a.employee_id
-                )}`}
+                className={`mb-1 px-2 py-1 rounded text-white truncate flex items-center gap-1 cursor-pointer ${STATUS_COLORS[a.status]}`}
               >
-                {a.employee_name}
+                <span
+                  className={`inline-block w-2 h-2 rounded-full ${getEmployeeColor(
+                    a.employee_id
+                  )}`}
+                />
+                {a.client_name}
               </div>
             ))}
           </div>
