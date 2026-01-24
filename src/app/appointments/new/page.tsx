@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { DateTime } from 'luxon';
 import { useRouter } from 'next/navigation';
 
@@ -11,16 +11,14 @@ import { apiFetch } from '@/lib/apiFetch';
 
 type Employee = {
   id: string;
-  name?: string;
-  first_name?: string;
-  last_name?: string;
+  name: string;
 };
 
 type AppointmentDraft = {
   serviceId: string | null;
   dateISO: string | null;
-  startISO: string | null;
   employeeId: string | null;
+  startISO: string | null;
   clientName: string;
   phone: string;
 };
@@ -37,56 +35,82 @@ export default function NewAppointmentPage() {
   const [draft, setDraft] = useState<AppointmentDraft>({
     serviceId: null,
     dateISO: null,
-    startISO: null,
     employeeId: null,
+    startISO: null,
     clientName: '',
     phone: '',
   });
 
-  const [serviceDuration, setServiceDuration] = useState<number>(0);
   const [employees, setEmployees] = useState<Employee[]>([]);
+  const [slots, setSlots] = useState<string[]>([]);
   const [loadingEmployees, setLoadingEmployees] = useState(false);
+  const [loadingSlots, setLoadingSlots] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const canSubmit =
     !!draft.serviceId &&
     !!draft.dateISO &&
-    !!draft.startISO &&
     !!draft.employeeId &&
+    !!draft.startISO &&
     draft.clientName.trim() &&
     draft.phone.trim();
 
   /* =========================
-     DURACIÓN DEL SERVICIO
-  ========================= */
-  async function loadServiceDuration(serviceId: string) {
-    const res = await apiFetch<any>(`/services/${serviceId}`);
-    setServiceDuration(res.duration_minutes);
-  }
-
-  /* =========================
      EMPLEADOS DISPONIBLES
-     (BACKEND DECIDE)
   ========================= */
-  async function loadEmployees(startISO: string) {
-    if (!draft.serviceId) return;
+  useEffect(() => {
+    if (!draft.serviceId || !draft.dateISO) return;
 
     setLoadingEmployees(true);
     setEmployees([]);
+    setDraft(d => ({
+      ...d,
+      employeeId: null,
+      startISO: null,
+    }));
 
-    try {
-      const res = await apiFetch<Employee[]>(
-        `/employees/available?serviceId=${draft.serviceId}&startISO=${encodeURIComponent(startISO)}`
-      );
+    apiFetch<Employee[]>(
+      `/employees/available?serviceId=${draft.serviceId}&startISO=${DateTime
+        .fromISO(draft.dateISO, { zone })
+        .set({ hour: 12 })
+        .toUTC()
+        .toISO()}`
+    )
+      .then(res => {
+        setEmployees(Array.isArray(res) ? res : []);
+      })
+      .catch(() => {
+        setEmployees([]);
+      })
+      .finally(() => {
+        setLoadingEmployees(false);
+      });
+  }, [draft.serviceId, draft.dateISO]);
 
-      setEmployees(Array.isArray(res) ? res : []);
-    } catch {
-      setEmployees([]);
-    } finally {
-      setLoadingEmployees(false);
-    }
-  }
+  /* =========================
+     SLOTS POR EMPLEADO Y DÍA
+  ========================= */
+  useEffect(() => {
+    if (!draft.serviceId || !draft.employeeId || !draft.dateISO) return;
+
+    setLoadingSlots(true);
+    setSlots([]);
+    setDraft(d => ({ ...d, startISO: null }));
+
+    apiFetch<string[]>(
+      `/employees/${draft.employeeId}/availability?serviceId=${draft.serviceId}&dateISO=${draft.dateISO}`
+    )
+      .then(res => {
+        setSlots(Array.isArray(res) ? res : []);
+      })
+      .catch(() => {
+        setSlots([]);
+      })
+      .finally(() => {
+        setLoadingSlots(false);
+      });
+  }, [draft.serviceId, draft.employeeId, draft.dateISO]);
 
   /* =========================
      CREAR CITA
@@ -117,89 +141,35 @@ export default function NewAppointmentPage() {
     }
   }
 
-  /* =========================
-     HORAS (DINÁMICAS, COMO ANTES)
-  ========================= */
-  function TimePicker() {
-    if (!draft.dateISO || !serviceDuration) return null;
-
-    const start = DateTime.fromISO(draft.dateISO, { zone }).set({
-      hour: 9,
-      minute: 0,
-    });
-
-    const end = DateTime.fromISO(draft.dateISO, { zone }).set({
-      hour: 19,
-      minute: 0,
-    });
-
-    const times: DateTime[] = [];
-    let cursor = start;
-
-    while (cursor.plus({ minutes: serviceDuration }) <= end) {
-      times.push(cursor);
-      cursor = cursor.plus({ minutes: serviceDuration });
-    }
-
-    return (
-      <div className="grid grid-cols-4 gap-2">
-        {times.map(t => {
-          const iso = t.toUTC().toISO()!;
-          return (
-            <button
-              key={iso}
-              type="button"
-              className="border rounded px-3 py-2 hover:bg-gray-50"
-              onClick={() => {
-                setDraft(d => ({
-                  ...d,
-                  startISO: iso,
-                  employeeId: null,
-                }));
-                loadEmployees(iso);
-              }}
-            >
-              {t.toFormat('HH:mm')}
-            </button>
-          );
-        })}
-      </div>
-    );
-  }
-
   return (
     <DashboardLayout>
       <h1 className="text-xl font-bold mb-4">Nueva cita</h1>
 
       <div className="max-w-xl space-y-6">
-        {/* SERVICIO */}
         <ServiceSelector
-          onSelect={async (serviceId) => {
+          onSelect={(serviceId) =>
             setDraft({
               serviceId,
               dateISO: null,
-              startISO: null,
               employeeId: null,
+              startISO: null,
               clientName: '',
               phone: '',
-            });
-            await loadServiceDuration(serviceId);
-          }}
+            })
+          }
         />
 
-        {/* FECHA */}
         {draft.serviceId && (
           <div>
-            <h3 className="font-semibold mb-2">Selecciona la fecha</h3>
+            <h3 className="font-semibold mb-2">Fecha</h3>
             <input
               type="date"
               min={minDateISO ?? undefined}
+              value={draft.dateISO ?? ''}
               onChange={(e) =>
                 setDraft(d => ({
                   ...d,
                   dateISO: e.target.value,
-                  startISO: null,
-                  employeeId: null,
                 }))
               }
               className="w-full px-3 py-2 border rounded"
@@ -207,55 +177,85 @@ export default function NewAppointmentPage() {
           </div>
         )}
 
-        {/* HORA */}
         {draft.dateISO && (
           <div>
-            <h3 className="font-semibold mb-2">Selecciona la hora</h3>
-            <TimePicker />
-          </div>
-        )}
-
-        {/* EMPLEADOS */}
-        {draft.startISO && (
-          <div>
-            <h3 className="font-semibold mb-2">Empleado disponible</h3>
+            <h3 className="font-semibold mb-2">Empleado</h3>
 
             {loadingEmployees ? (
-              <p className="text-sm opacity-60">Buscando disponibilidad…</p>
+              <p className="text-sm opacity-60">Cargando empleados…</p>
             ) : employees.length === 0 ? (
               <p className="text-sm text-red-500">
-                No hay empleados disponibles a esa hora
+                No hay empleados disponibles ese día
               </p>
             ) : (
               employees.map(e => (
                 <button
                   key={e.id}
                   type="button"
-                  className={`w-full border rounded px-4 py-2 text-left mb-2
-                    ${
-                      draft.employeeId === e.id
-                        ? 'border-emerald-400 bg-emerald-50'
-                        : 'hover:bg-gray-50'
-                    }`}
+                  className={`w-full border rounded px-4 py-2 text-left mb-2 ${
+                    draft.employeeId === e.id
+                      ? 'border-emerald-400 bg-emerald-50'
+                      : 'hover:bg-gray-50'
+                  }`}
                   onClick={() =>
-                    setDraft(d => ({ ...d, employeeId: e.id }))
+                    setDraft(d => ({
+                      ...d,
+                      employeeId: e.id,
+                    }))
                   }
                 >
-                  {e.name ??
-                    `${e.first_name ?? ''} ${e.last_name ?? ''}`.trim()}
+                  {e.name}
                 </button>
               ))
             )}
           </div>
         )}
 
-        {/* CLIENTE */}
         {draft.employeeId && (
+          <div>
+            <h3 className="font-semibold mb-2">Hora</h3>
+
+            {loadingSlots ? (
+              <p className="text-sm opacity-60">Cargando horarios…</p>
+            ) : slots.length === 0 ? (
+              <p className="text-sm text-red-500">
+                No hay horarios disponibles
+              </p>
+            ) : (
+              <div className="grid grid-cols-3 gap-2">
+                {slots.map(iso => {
+                  const t = DateTime.fromISO(iso, { zone: 'utc' }).setZone(zone);
+                  return (
+                    <button
+                      key={iso}
+                      type="button"
+                      className={`border rounded px-3 py-2 ${
+                        draft.startISO === iso
+                          ? 'bg-black text-white'
+                          : 'hover:bg-gray-50'
+                      }`}
+                      onClick={() =>
+                        setDraft(d => ({ ...d, startISO: iso }))
+                      }
+                    >
+                      {t.toFormat('HH:mm')}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {draft.startISO && (
           <ClientForm
             clientName={draft.clientName}
             phone={draft.phone}
             onChange={(data) =>
-              setDraft(d => ({ ...d, ...data }))
+              setDraft(d => ({
+                ...d,
+                ...data,
+              }))
             }
           />
         )}
