@@ -24,8 +24,8 @@ type Period = 'day' | 'week' | 'month';
 type Props = {
   employee: Employee;
   appointments: Appointment[];
-  date: DateTime;
-  period: Period;
+  date: DateTime;        // 🔑 MISMA FECHA DEL DASHBOARD
+  period: Period;        // 🔑 MISMO PERIODO
   business: Business;
 };
 
@@ -41,29 +41,38 @@ export function StaffAvailabilityBoard({
 }: Props) {
   /* =========================
      HORARIO DEL NEGOCIO
-     (igual que AppointmentList → CalendarView)
   ========================= */
-  const hours = useMemo(() => {
-    if (!business.opening_time || !business.closing_time) return [];
-
-    const [openH] = business.opening_time.split(':').map(Number);
-    const [closeH] = business.closing_time.split(':').map(Number);
-
-    const slots: DateTime[] = [];
-
-    for (let h = openH; h < closeH; h++) {
-      slots.push(date.set({ hour: h, minute: 0 }));
-      slots.push(date.set({ hour: h, minute: 30 }));
+  const [openH, closeH] = useMemo(() => {
+    if (!business.opening_time || !business.closing_time) {
+      return [8, 18];
     }
 
-    return slots;
-  }, [business, date]);
+    return [
+      Number(business.opening_time.split(':')[0]),
+      Number(business.closing_time.split(':')[0]),
+    ];
+  }, [business]);
 
   /* =========================
-     FILTRO POR PERIODO
-     (MISMA LÓGICA QUE AppointmentList)
+     DIAS VISIBLES (IGUAL QUE AppointmentList)
   ========================= */
-  const scopedAppointments = useMemo(() => {
+  const days = useMemo(() => {
+    if (period === 'day') return [date];
+
+    if (period === 'week') {
+      return Array.from({ length: 7 }, (_, i) =>
+        date.startOf('week').plus({ days: i })
+      );
+    }
+
+    // month → se sigue mostrando por día seleccionado
+    return [date];
+  }, [date, period]);
+
+  /* =========================
+     CITAS DEL EMPLEADO (MISMO FILTRO)
+  ========================= */
+  const employeeAppointments = useMemo(() => {
     return appointments.filter(a => {
       if (a.employee_id !== employee.id) return false;
 
@@ -72,22 +81,19 @@ export function StaffAvailabilityBoard({
         .setZone(ZONE);
 
       if (period === 'day') return d.hasSame(date, 'day');
-
       if (period === 'week') {
         return d >= date.startOf('week') && d <= date.endOf('week');
       }
 
-      // month → se sigue mostrando disponibilidad diaria
       return d.hasSame(date, 'day');
     });
-  }, [appointments, employee.id, period, date]);
+  }, [appointments, employee.id, date, period]);
 
   /* =========================
      SLOT OCUPADO?
-     (MISMA REGLA QUE CALENDARVIEW)
   ========================= */
   function isOccupied(slot: DateTime) {
-    return scopedAppointments.some(a => {
+    return employeeAppointments.some(a => {
       const start = DateTime
         .fromISO(a.starts_at, { zone: 'utc' })
         .setZone(ZONE);
@@ -105,30 +111,51 @@ export function StaffAvailabilityBoard({
   ========================= */
   return (
     <div className="border rounded overflow-x-auto">
-      <div className="grid grid-cols-[100px_1fr]">
+      <div
+        className="grid"
+        style={{
+          gridTemplateColumns: `80px repeat(${days.length}, 1fr)`,
+        }}
+      >
         {/* HEADER */}
         <div className="border-b p-2 font-medium">Hora</div>
-        <div className="border-b p-2 font-medium text-center">
-          {employee.name}
-        </div>
+        {days.map(d => (
+          <div
+            key={d.toISODate()}
+            className="border-b p-2 text-center font-medium"
+          >
+            {d.toFormat('ccc dd')}
+          </div>
+        ))}
 
         {/* SLOTS */}
-        {hours.map(slot => {
-          const busy = isOccupied(slot);
+        {Array.from({ length: (closeH - openH) * 2 }).map((_, i) => {
+          const hour = openH + Math.floor(i / 2);
+          const minute = i % 2 === 0 ? 0 : 30;
 
           return (
-            <Fragment key={slot.toISO()}>
+            <Fragment key={i}>
               <div className="border-t p-2 text-sm text-gray-600">
-                {slot.toFormat('HH:mm')}
+                {String(hour).padStart(2, '0')}:
+                {minute === 0 ? '00' : '30'}
               </div>
 
-              <div
-                className={`border-t h-8 transition ${
-                  busy
-                    ? 'bg-blue-500/70'     // 🔵 OCUPADO
-                    : 'bg-emerald-500/40' // 🟢 LIBRE
-                }`}
-              />
+              {days.map(day => {
+                const slot = day.set({ hour, minute });
+
+                const busy = isOccupied(slot);
+
+                return (
+                  <div
+                    key={slot.toISO()}
+                    className={`border-t h-8 ${
+                      busy
+                        ? 'bg-blue-500/70'     // 🔵 OCUPADO
+                        : 'bg-emerald-500/40' // 🟢 LIBRE
+                    }`}
+                  />
+                );
+              })}
             </Fragment>
           );
         })}
