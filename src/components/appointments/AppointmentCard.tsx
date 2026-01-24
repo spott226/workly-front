@@ -27,11 +27,49 @@ const toMX = (iso: string) =>
 const formatTime = (iso: string) => toMX(iso).toFormat('hh:mm a');
 const formatDate = (iso: string) => toMX(iso).toFormat('dd LLL yyyy');
 
+/* ===========================
+   COLORES POR ESTADO
+=========================== */
+
+const STATUS_STYLES: Record<
+  string,
+  { badge: string; border: string }
+> = {
+  PENDING: {
+    badge: 'bg-yellow-100 text-yellow-800',
+    border: 'border-yellow-300',
+  },
+  CONFIRMED: {
+    badge: 'bg-blue-100 text-blue-800',
+    border: 'border-blue-300',
+  },
+  ATTENDED: {
+    badge: 'bg-emerald-100 text-emerald-800',
+    border: 'border-emerald-300',
+  },
+  NO_SHOW: {
+    badge: 'bg-red-100 text-red-800',
+    border: 'border-red-300',
+  },
+  CANCELLED: {
+    badge: 'bg-gray-100 text-gray-700',
+    border: 'border-gray-300',
+  },
+  RESCHEDULED: {
+    badge: 'bg-purple-100 text-purple-800',
+    border: 'border-purple-300',
+  },
+};
+
 export function AppointmentCard({ appointment, onChange }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showReschedule, setShowReschedule] = useState(false);
   const [newStartISO, setNewStartISO] = useState<string | null>(null);
+
+  const statusStyle =
+    STATUS_STYLES[appointment.status] ??
+    STATUS_STYLES.PENDING;
 
   async function handle(action: () => Promise<any>) {
     try {
@@ -77,13 +115,23 @@ export function AppointmentCard({ appointment, onChange }: Props) {
   }
 
   return (
-    <div className="w-full border rounded-lg bg-white p-4 sm:p-5 space-y-4">
+    <div
+      className={`w-full border rounded-lg bg-white p-4 sm:p-5 space-y-4 ${statusStyle.border}`}
+    >
       <div className="flex flex-col sm:flex-row sm:justify-between gap-4">
         {/* Info */}
         <div className="space-y-1 min-w-0">
-          <p className="font-semibold truncate">
-            {appointment.client_name}
-          </p>
+          <div className="flex items-center gap-2">
+            <p className="font-semibold truncate">
+              {appointment.client_name}
+            </p>
+
+            <span
+              className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusStyle.badge}`}
+            >
+              {appointment.status}
+            </span>
+          </div>
 
           <p className="text-sm text-gray-600 truncate">
             {appointment.service_name} · {appointment.employee_name}
@@ -95,10 +143,6 @@ export function AppointmentCard({ appointment, onChange }: Props) {
             📅 {formatDate(appointment.starts_at)} · ⏰{' '}
             {formatTime(appointment.starts_at)} –{' '}
             {formatTime(appointment.ends_at)}
-          </p>
-
-          <p className="text-xs mt-1">
-            Estado: <b>{appointment.status}</b>
           </p>
 
           {error && (
@@ -113,10 +157,7 @@ export function AppointmentCard({ appointment, onChange }: Props) {
             <button
               disabled={loading}
               onClick={() => {
-                // 🔥 IMPORTANTE: WhatsApp PRIMERO (gesto directo)
                 sendConfirmWhatsapp();
-
-                // Luego backend
                 handle(() => confirmAppointment(appointment.id));
               }}
               className="px-4 py-2 text-sm border rounded-md disabled:opacity-50"
@@ -182,7 +223,6 @@ export function AppointmentCard({ appointment, onChange }: Props) {
             <button
               disabled={!newStartISO || loading}
               onClick={() => {
-                // WhatsApp primero
                 sendRescheduleWhatsapp(newStartISO!);
 
                 handle(async () => {

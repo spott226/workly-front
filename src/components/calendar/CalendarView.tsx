@@ -3,31 +3,32 @@
 import { DateTime } from 'luxon';
 import { Appointment } from '@/lib/appointments';
 
-/* =========================
-   CONFIGURACIÓN
-========================= */
-const ZONE = 'America/Mexico_City';
+const zone = 'America/Mexico_City';
 const START_HOUR = 8;
 const END_HOUR = 22;
 const HOURS = END_HOUR - START_HOUR;
 
-const HOUR_HEIGHT = 64; // px
+const HOUR_HEIGHT = 64;
 const MINUTE_HEIGHT = HOUR_HEIGHT / 60;
 
 /* =========================
-   TIPOS
+   COLORES POR ESTADO
 ========================= */
-export type CalendarViewMode = 'day' | 'week' | 'month';
+const STATUS_COLORS: Record<string, string> = {
+  PENDING: 'bg-yellow-500',
+  CONFIRMED: 'bg-blue-600',
+  ATTENDED: 'bg-emerald-600',
+  NO_SHOW: 'bg-red-600',
+  CANCELLED: 'bg-gray-400',
+  RESCHEDULED: 'bg-purple-600',
+};
 
 type Props = {
   appointments: Appointment[];
-  view: CalendarViewMode;
+  view: 'day' | 'week' | 'month';
   onAppointmentClick?: (a: Appointment) => void;
 };
 
-/* =========================
-   COMPONENTE PRINCIPAL
-========================= */
 export function CalendarView({
   appointments,
   view,
@@ -52,7 +53,7 @@ export function CalendarView({
 }
 
 /* =========================
-   VISTA DÍA / SEMANA
+   DAY / WEEK
 ========================= */
 function DayWeekView({
   appointments,
@@ -63,8 +64,7 @@ function DayWeekView({
   view: 'day' | 'week';
   onAppointmentClick?: (a: Appointment) => void;
 }) {
-  const today = DateTime.now().setZone(ZONE);
-
+  const today = DateTime.now().setZone(zone);
   const days =
     view === 'day'
       ? [today]
@@ -76,11 +76,8 @@ function DayWeekView({
     <div className="border rounded overflow-x-auto">
       <div
         className="grid min-w-[900px]"
-        style={{
-          gridTemplateColumns: `80px repeat(${days.length}, 1fr)`,
-        }}
+        style={{ gridTemplateColumns: `80px repeat(${days.length}, 1fr)` }}
       >
-        {/* HEADER */}
         <div />
         {days.map(d => (
           <div
@@ -91,8 +88,8 @@ function DayWeekView({
           </div>
         ))}
 
-        {/* GRID */}
         <TimeColumn />
+
         {days.map(day => (
           <DayColumn
             key={day.toISODate()}
@@ -107,7 +104,7 @@ function DayWeekView({
 }
 
 /* =========================
-   COLUMNA HORAS
+   HOURS COLUMN
 ========================= */
 function TimeColumn() {
   return (
@@ -129,7 +126,7 @@ function TimeColumn() {
 }
 
 /* =========================
-   COLUMNA DÍA
+   DAY COLUMN
 ========================= */
 function DayColumn({
   day,
@@ -141,34 +138,23 @@ function DayColumn({
   onAppointmentClick?: (a: Appointment) => void;
 }) {
   const dayAppointments = appointments.filter(a => {
-    const start = DateTime.fromISO(a.starts_at, { zone: 'utc' }).setZone(ZONE);
+    const start = DateTime.fromISO(a.starts_at, { zone: 'utc' }).setZone(zone);
     return start.hasSame(day, 'day');
   });
 
   return (
-    <div
-      className="relative border-l"
-      style={{ height: HOURS * HOUR_HEIGHT }}
-    >
-      {/* Líneas */}
+    <div className="relative border-l" style={{ height: HOURS * HOUR_HEIGHT }}>
       {Array.from({ length: HOURS }).map((_, i) => (
-        <div
-          key={i}
-          className="border-t"
-          style={{ height: HOUR_HEIGHT }}
-        />
+        <div key={i} className="border-t" style={{ height: HOUR_HEIGHT }} />
       ))}
 
-      {/* Citas */}
       {dayAppointments.map(a => {
-        const start = DateTime.fromISO(a.starts_at, { zone: 'utc' }).setZone(ZONE);
-        const end = DateTime.fromISO(a.ends_at, { zone: 'utc' }).setZone(ZONE);
+        const start = DateTime.fromISO(a.starts_at, { zone: 'utc' }).setZone(zone);
+        const end = DateTime.fromISO(a.ends_at, { zone: 'utc' }).setZone(zone);
 
         const startMinutes =
           (start.hour - START_HOUR) * 60 + start.minute;
-
-        const durationMinutes =
-          end.diff(start, 'minutes').minutes;
+        const durationMinutes = end.diff(start, 'minutes').minutes;
 
         const top = startMinutes * MINUTE_HEIGHT;
         const height = Math.max(durationMinutes * MINUTE_HEIGHT, 24);
@@ -177,7 +163,7 @@ function DayColumn({
           <div
             key={a.id}
             onClick={() => onAppointmentClick?.(a)}
-            className="absolute left-1 right-1 rounded bg-black text-white text-xs px-2 py-1 cursor-pointer hover:bg-gray-800"
+            className={`absolute left-1 right-1 rounded text-white text-xs px-2 py-1 cursor-pointer ${STATUS_COLORS[a.status]}`}
             style={{ top, height }}
           >
             <div className="font-medium truncate">
@@ -194,7 +180,7 @@ function DayColumn({
 }
 
 /* =========================
-   VISTA MES
+   MONTH VIEW
 ========================= */
 function MonthView({
   appointments,
@@ -203,7 +189,7 @@ function MonthView({
   appointments: Appointment[];
   onAppointmentClick?: (a: Appointment) => void;
 }) {
-  const today = DateTime.now().setZone(ZONE);
+  const today = DateTime.now().setZone(zone);
   const start = today.startOf('month').startOf('week');
 
   return (
@@ -212,24 +198,19 @@ function MonthView({
         const day = start.plus({ days: i });
 
         const dayAppointments = appointments.filter(a => {
-          const d = DateTime.fromISO(a.starts_at, { zone: 'utc' }).setZone(ZONE);
+          const d = DateTime.fromISO(a.starts_at, { zone: 'utc' }).setZone(zone);
           return d.hasSame(day, 'day');
         });
 
         return (
-          <div
-            key={day.toISODate()}
-            className="bg-white min-h-[120px] p-2 text-sm"
-          >
-            <div className="text-xs text-gray-500 mb-1">
-              {day.day}
-            </div>
+          <div key={day.toISODate()} className="bg-white min-h-[120px] p-2 text-sm">
+            <div className="text-xs text-gray-500 mb-1">{day.day}</div>
 
             {dayAppointments.map(a => (
               <div
                 key={a.id}
                 onClick={() => onAppointmentClick?.(a)}
-                className="mb-1 rounded bg-black text-white text-xs px-2 py-1 cursor-pointer hover:bg-gray-800 truncate"
+                className={`mb-1 rounded text-white text-xs px-2 py-1 cursor-pointer truncate ${STATUS_COLORS[a.status]}`}
               >
                 {a.client_name || 'Cliente'}
               </div>
