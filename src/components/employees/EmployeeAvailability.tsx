@@ -16,7 +16,7 @@ type Props = {
   date: DateTime;
   onSelect: (employeeId: string, startISO: string) => void;
   publicMode?: boolean;
-  slug?: string; // 👈 CLAVE
+  slug?: string;
 };
 
 export function EmployeeAvailability({
@@ -32,13 +32,16 @@ export function EmployeeAvailability({
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null);
   const [slots, setSlots] = useState<DateTime[]>([]);
   const [selectedISO, setSelectedISO] = useState<string | null>(null);
-  const [loadingEmployees, setLoadingEmployees] = useState(true);
+  const [loadingEmployees, setLoadingEmployees] = useState(false);
   const [loadingSlots, setLoadingSlots] = useState(false);
 
   /* =========================
-     1️⃣ CARGAR EMPLEADAS
+     CARGAR EMPLEADAS
   ========================= */
   useEffect(() => {
+    // 🔥 CLAVE: no disparar si es público y no hay slug
+    if (publicMode && !slug) return;
+
     let cancelled = false;
 
     async function loadEmployees() {
@@ -75,35 +78,36 @@ export function EmployeeAvailability({
   }, [serviceId, publicMode, slug]);
 
   /* =========================
-     2️⃣ CARGAR HORARIOS
+     CARGAR HORARIOS
   ========================= */
   async function loadSlotsForEmployee(employeeId: string) {
-  setSelectedEmployeeId(employeeId);
-  setSelectedISO(null);
-  setSlots([]);
-  setLoadingSlots(true);
-
-  try {
-    const url = publicMode
-      ? `/appointments/public/availability/day?serviceId=${serviceId}&employeeId=${employeeId}&date=${date.toISODate()}`
-      : `/appointments/availability/day?serviceId=${serviceId}&employeeId=${employeeId}&date=${date.toISODate()}`;
-
-    const res = await apiFetch<{ slots: string[] }>(
-      url,
-      publicMode ? { public: true } : undefined
-    );
-
-    setSlots(
-      res.slots.map(iso =>
-        DateTime.fromISO(iso, { zone: 'utc' }).setZone(zone)
-      )
-    );
-  } catch {
+    setSelectedEmployeeId(employeeId);
+    setSelectedISO(null);
     setSlots([]);
-  } finally {
-    setLoadingSlots(false);
+    setLoadingSlots(true);
+
+    try {
+      const url = publicMode
+        ? `/appointments/availability/day?serviceId=${serviceId}&employeeId=${employeeId}&date=${date.toISODate()}&slug=${slug}`
+        : `/appointments/availability/day?serviceId=${serviceId}&employeeId=${employeeId}&date=${date.toISODate()}`;
+
+      const res = await apiFetch<{ slots: string[] }>(
+        url,
+        publicMode ? { public: true } : undefined
+      );
+
+      setSlots(
+        res.slots.map(iso =>
+          DateTime.fromISO(iso, { zone: 'utc' }).setZone(zone)
+        )
+      );
+    } catch {
+      setSlots([]);
+    } finally {
+      setLoadingSlots(false);
+    }
   }
-}
+
   /* =========================
      UI
   ========================= */
