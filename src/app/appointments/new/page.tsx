@@ -6,7 +6,6 @@ import { useRouter } from 'next/navigation';
 
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { ServiceSelector } from '@/components/booking/ServiceSelector';
-import { EmployeeAvailability } from '@/components/employees/EmployeeAvailability';
 import { ClientForm } from '@/components/booking/ClientForm';
 import { apiFetch } from '@/lib/apiFetch';
 
@@ -118,20 +117,6 @@ export default function NewAppointmentPage() {
           </div>
         )}
 
-        {/* EMPLEADAS + HORARIOS */}
-        {draft.serviceId && draft.date && (
-          <EmployeeAvailability
-            serviceId={draft.serviceId}
-            date={draft.date}
-            onSelect={(employeeId, startISO) =>
-              setDraft(d => ({
-                ...d,
-                employeeId,
-                startISO,
-              }))
-            }
-          />
-        )}
 
         {/* CLIENTE */}
         {draft.startISO && (

@@ -7,7 +7,6 @@ import { useRouter } from 'next/navigation';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { ServiceSelector } from '@/components/booking/ServiceSelector';
 import { EmployeeSelector } from '@/components/booking/EmployeeSelector';
-import { EmployeeAvailability } from '@/components/employees/EmployeeAvailability';
 import { ClientForm } from '@/components/booking/ClientForm';
 import { apiFetch } from '@/lib/apiFetch';
 
