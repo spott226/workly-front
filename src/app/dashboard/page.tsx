@@ -15,7 +15,7 @@ import { apiFetch } from '@/lib/apiFetch';
 /* =========================
    TIPOS
 ========================= */
-type Period = 'day' | 'week' | 'month' | 'year';
+type Period = 'day' | 'week' | 'month';
 
 type BusinessHours = {
   opening_time: string | null;
@@ -36,10 +36,9 @@ export default function DashboardPage() {
   const router = useRouter();
 
   const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [employees, setEmployees] = useState<Employee[]>([]);
   const [businessHours, setBusinessHours] =
     useState<BusinessHours | null>(null);
-
-  const [employees, setEmployees] = useState<Employee[]>([]);
 
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState<Period>('day');
@@ -80,24 +79,22 @@ export default function DashboardPage() {
   }, []);
 
   /* =========================
-     FILTRO POR PERIODO
+     FILTRO GLOBAL (MISMO QUE CALENDAR)
   ========================= */
   const filteredAppointments = useMemo(() => {
     return appointments.filter(a => {
       const d = DateTime.fromISO(a.starts_at, { zone: 'utc' }).setZone(ZONE);
 
-      if (period === 'year') return d.year === date.year;
       if (period === 'month') return d.hasSame(date, 'month');
-      if (period === 'week') {
+      if (period === 'week')
         return d >= date.startOf('week') && d <= date.endOf('week');
-      }
 
       return d.hasSame(date, 'day');
     });
   }, [appointments, period, date]);
 
   /* =========================
-     NAV DATE
+     NAV DATE (MISMO CONTROL)
   ========================= */
   function moveDate(step: number) {
     if (period === 'day') setDate(d => d.plus({ days: step }));
@@ -130,7 +127,7 @@ export default function DashboardPage() {
         </button>
       </div>
 
-      {/* CONTROLES */}
+      {/* CONTROLES (MISMO UX) */}
       <div className="flex flex-wrap items-center gap-3 mb-4">
         {(['day', 'week', 'month'] as Period[]).map(p => (
           <button
@@ -155,16 +152,10 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* CALENDARIO */}
+      {/* CALENDARIO PRINCIPAL */}
       <CalendarView
         appointments={filteredAppointments}
-        view={
-          period === 'day'
-            ? 'day'
-            : period === 'week'
-            ? 'week'
-            : 'month'
-        }
+        view={period}
         businessHours={businessHours}
         onAppointmentClick={setSelectedAppointment}
       />
@@ -182,7 +173,8 @@ export default function DashboardPage() {
       )}
 
       {/* =========================
-          EQUIPO DE TRABAJO
+          DISPONIBILIDAD DEL EQUIPO
+          (MISMA FECHA / PERIODO)
       ========================= */}
       <div className="mt-12 space-y-6">
         <h2 className="text-xl font-semibold">
@@ -195,7 +187,7 @@ export default function DashboardPage() {
             employee={emp}
             appointments={appointments}
             date={date}
-            period={period === 'year' ? 'month' : period}
+            period={period}
             business={businessHours}
           />
         ))}
