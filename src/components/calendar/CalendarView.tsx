@@ -37,12 +37,15 @@ const EMPLOYEE_COLORS = [
 ];
 
 export function getEmployeeColor(employeeId: string) {
-  let hash = 0;
+  let hash = 5381; // djb2 hash
   for (let i = 0; i < employeeId.length; i++) {
-    hash += employeeId.charCodeAt(i);
+    hash = (hash << 5) + hash + employeeId.charCodeAt(i);
   }
-  return EMPLOYEE_COLORS[hash % EMPLOYEE_COLORS.length];
+
+  const index = Math.abs(hash) % EMPLOYEE_COLORS.length;
+  return EMPLOYEE_COLORS[index];
 }
+
 
 
 /* =========================
