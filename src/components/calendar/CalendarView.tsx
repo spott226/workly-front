@@ -14,32 +14,29 @@ const MINUTE_HEIGHT = HOUR_HEIGHT / 60;
 
 /* =========================
    STATUS → BASE COLORS
-   (derivados de STATUS_STYLES)
 ========================= */
 const STATUS_BASE_COLORS: Record<string, string> = {
-  PENDING: '#FEF3C7',      // yellow-100
-  CONFIRMED: '#DBEAFE',    // blue-100
-  ATTENDED: '#D1FAE5',     // emerald-100
-  NO_SHOW: '#FEE2E2',      // red-100
-  CANCELLED: '#F3F4F6',    // gray-100
-  RESCHEDULED: '#EDE9FE',  // purple-100
+  PENDING: '#FEF3C7',
+  CONFIRMED: '#DBEAFE',
+  ATTENDED: '#D1FAE5',
+  NO_SHOW: '#FEE2E2',
+  CANCELLED: '#F3F4F6',
+  RESCHEDULED: '#EDE9FE',
 };
 
 /* =========================
    EMPLOYEE COLORS
-   (diferentes a acciones)
 ========================= */
 const EMPLOYEE_COLORS = [
-  '#F97316', // naranja
-  '#EC4899', // rosa
-  '#0EA5E9', // azul claro
-  '#22C55E', // verde claro
-  '#A855F7', // morado
+  '#F97316',
+  '#EC4899',
+  '#0EA5E9',
+  '#22C55E',
+  '#A855F7',
 ];
 
-/* 🔥 MISMA FUNCIÓN PARA CALENDAR Y DASHBOARD */
 export function getEmployeeColor(employeeId: string) {
-  let hash = 5381; // djb2
+  let hash = 5381;
   for (let i = 0; i < employeeId.length; i++) {
     hash = (hash << 5) + hash + employeeId.charCodeAt(i);
   }
@@ -89,11 +86,7 @@ export function CalendarView({
   const { startHour, endHour } = getBusinessHours(businessHours);
 
   if (view === 'month') {
-    return (
-      <div className="text-sm opacity-60">
-        Vista mensual pendiente
-      </div>
-    );
+    return <div className="text-sm opacity-60">Vista mensual pendiente</div>;
   }
 
   return (
@@ -142,12 +135,11 @@ function DayWeekView({
   return (
     <div className="border rounded overflow-x-auto">
       <div
-        className="grid min-w-[900px]"
+        className="grid md:min-w-[900px]"
         style={{
           gridTemplateColumns: `80px repeat(${days.length}, 1fr)`,
         }}
       >
-        {/* HEADER */}
         <div />
         {days.map(d => (
           <div
@@ -158,10 +150,8 @@ function DayWeekView({
           </div>
         ))}
 
-        {/* TIME COLUMN */}
         <TimeColumn startHour={startHour} hoursCount={hoursCount} />
 
-        {/* DAY COLUMNS */}
         {days.map(day => (
           <DayColumn
             key={day.toISODate()}
@@ -227,6 +217,9 @@ function DayColumn({
   const dayStart = day.set({ hour: startHour, minute: 0 });
   const dayEnd = day.set({ hour: endHour, minute: 0 });
 
+  const isMobile =
+    typeof window !== 'undefined' && window.innerWidth < 640;
+
   const dayAppointments = appointments
     .map(a => {
       const start = DateTime.fromISO(a.starts_at, { zone: 'utc' }).setZone(ZONE);
@@ -246,18 +239,32 @@ function DayColumn({
       className="relative border-l"
       style={{ height: hoursCount * HOUR_HEIGHT }}
     >
-      {/* GRID */}
       {Array.from({ length: hoursCount }).map((_, i) => (
         <div key={i} className="border-t" style={{ height: HOUR_HEIGHT }} />
       ))}
 
-      {/* APPOINTMENTS */}
       {dayAppointments.map(a => {
         const top =
           ((a.start.hour + a.start.minute / 60) - startHour) * HOUR_HEIGHT;
 
         const height =
           a.end.diff(a.start, 'minutes').minutes * MINUTE_HEIGHT;
+
+        const gradient = isMobile
+          ? `linear-gradient(
+              180deg,
+              ${STATUS_BASE_COLORS[a.status]} 0%,
+              ${STATUS_BASE_COLORS[a.status]} 50%,
+              ${getEmployeeColor(a.employee_id)} 50%,
+              ${getEmployeeColor(a.employee_id)} 100%
+            )`
+          : `linear-gradient(
+              90deg,
+              ${STATUS_BASE_COLORS[a.status]} 0%,
+              ${STATUS_BASE_COLORS[a.status]} 50%,
+              ${getEmployeeColor(a.employee_id)} 50%,
+              ${getEmployeeColor(a.employee_id)} 100%
+            )`;
 
         return (
           <div
@@ -268,33 +275,14 @@ function DayColumn({
               top,
               height,
               minHeight: 44,
-              background: window.innerWidth < 640
-  ? `linear-gradient(
-      180deg,
-      ${STATUS_BASE_COLORS[a.status]} 0%,
-      ${STATUS_BASE_COLORS[a.status]} 50%,
-      ${getEmployeeColor(a.employee_id)} 50%,
-      ${getEmployeeColor(a.employee_id)} 100%
-    )`
-  : `linear-gradient(
-      90deg,
-      ${STATUS_BASE_COLORS[a.status]} 0%,
-      ${STATUS_BASE_COLORS[a.status]} 50%,
-      ${getEmployeeColor(a.employee_id)} 50%,
-      ${getEmployeeColor(a.employee_id)} 100%
-    )`,
-
+              background: gradient,
             }}
           >
             <div className="px-2 py-1 leading-tight">
-              <div className="font-medium truncate">
-                {a.client_name}
-              </div>
-
+              <div className="font-medium truncate">{a.client_name}</div>
               <div className="text-[11px] opacity-90 truncate">
                 {a.employee_name}
               </div>
-
               <div className="text-[11px] opacity-80 whitespace-nowrap">
                 {a.start.toFormat('HH:mm')} – {a.end.toFormat('HH:mm')}
               </div>
