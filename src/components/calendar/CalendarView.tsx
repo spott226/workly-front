@@ -13,20 +13,21 @@ const HOUR_HEIGHT = 64;
 const MINUTE_HEIGHT = HOUR_HEIGHT / 60;
 
 /* =========================
-   COLORES POR ESTADO (NO TOCAR)
+   STATUS → BASE COLORS
+   (derivados de STATUS_STYLES)
 ========================= */
-const STATUS_COLORS: Record<string, string> = {
-  PENDING: '#2563EB',
-  CONFIRMED: '#16A34A',
-  ATTENDED: '#059669',
-  NO_SHOW: '#DC2626',
-  CANCELLED: '#9CA3AF',
-  RESCHEDULED: '#7C3AED',
+const STATUS_BASE_COLORS: Record<string, string> = {
+  PENDING: '#FEF3C7',      // yellow-100
+  CONFIRMED: '#DBEAFE',    // blue-100
+  ATTENDED: '#D1FAE5',     // emerald-100
+  NO_SHOW: '#FEE2E2',      // red-100
+  CANCELLED: '#F3F4F6',    // gray-100
+  RESCHEDULED: '#EDE9FE',  // purple-100
 };
 
 /* =========================
-   COLORES POR EMPLEADA
-   (DIFERENTES A LOS DE ACCIÓN)
+   EMPLOYEE COLORS
+   (diferentes a acciones)
 ========================= */
 const EMPLOYEE_COLORS = [
   '#F97316', // naranja
@@ -36,17 +37,14 @@ const EMPLOYEE_COLORS = [
   '#A855F7', // morado
 ];
 
+/* 🔥 MISMA FUNCIÓN PARA CALENDAR Y DASHBOARD */
 export function getEmployeeColor(employeeId: string) {
-  let hash = 5381; // djb2 hash
+  let hash = 5381; // djb2
   for (let i = 0; i < employeeId.length; i++) {
     hash = (hash << 5) + hash + employeeId.charCodeAt(i);
   }
-
-  const index = Math.abs(hash) % EMPLOYEE_COLORS.length;
-  return EMPLOYEE_COLORS[index];
+  return EMPLOYEE_COLORS[Math.abs(hash) % EMPLOYEE_COLORS.length];
 }
-
-
 
 /* =========================
    TYPES
@@ -239,7 +237,9 @@ function DayColumn({
 
       return { ...a, start, end };
     })
-    .filter(Boolean) as any[];
+    .filter(Boolean) as Array<
+      Appointment & { start: DateTime; end: DateTime }
+    >;
 
   return (
     <div
@@ -263,15 +263,15 @@ function DayColumn({
           <div
             key={a.id}
             onClick={() => onAppointmentClick?.(a)}
-            className="absolute left-1 right-1 rounded text-white text-xs cursor-pointer overflow-hidden flex flex-col justify-center"
+            className="absolute left-0 right-0 mx-1 rounded text-xs cursor-pointer overflow-hidden flex flex-col justify-center"
             style={{
               top,
               height,
               minHeight: 44,
               background: `linear-gradient(
                 90deg,
-                ${STATUS_COLORS[a.status]} 0%,
-                ${STATUS_COLORS[a.status]} 50%,
+                ${STATUS_BASE_COLORS[a.status]} 0%,
+                ${STATUS_BASE_COLORS[a.status]} 50%,
                 ${getEmployeeColor(a.employee_id)} 50%,
                 ${getEmployeeColor(a.employee_id)} 100%
               )`,
