@@ -268,13 +268,22 @@ function DayColumn({
               top,
               height,
               minHeight: 44,
-              background: `linear-gradient(
-                90deg,
-                ${STATUS_BASE_COLORS[a.status]} 0%,
-                ${STATUS_BASE_COLORS[a.status]} 50%,
-                ${getEmployeeColor(a.employee_id)} 50%,
-                ${getEmployeeColor(a.employee_id)} 100%
-              )`,
+              background: window.innerWidth < 640
+  ? `linear-gradient(
+      180deg,
+      ${STATUS_BASE_COLORS[a.status]} 0%,
+      ${STATUS_BASE_COLORS[a.status]} 50%,
+      ${getEmployeeColor(a.employee_id)} 50%,
+      ${getEmployeeColor(a.employee_id)} 100%
+    )`
+  : `linear-gradient(
+      90deg,
+      ${STATUS_BASE_COLORS[a.status]} 0%,
+      ${STATUS_BASE_COLORS[a.status]} 50%,
+      ${getEmployeeColor(a.employee_id)} 50%,
+      ${getEmployeeColor(a.employee_id)} 100%
+    )`,
+
             }}
           >
             <div className="px-2 py-1 leading-tight">
